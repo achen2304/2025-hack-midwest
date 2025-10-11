@@ -1,30 +1,29 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import '../styles/globals.css'
-import Navbar from '@/components/Navbar'
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';
+import UserSync from '../components/UserSync';
+import '../styles/globals.css';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'CampusMind - AI Academic & Wellness Assistant',
-  description: 'AI-powered academic and wellness assistant for college students',
-}
+  description:
+    'AI-powered academic and wellness assistant for college students',
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="min-h-screen bg-gray-50">
-          <Navbar />
-          <main className="container mx-auto px-4 py-8">
-            {children}
-          </main>
-        </div>
-      </body>
-    </html>
-  )
+    <ClerkProvider>
+      <html lang="en">
+        <body className={inter.className}>
+          <UserSync>{children}</UserSync>
+        </body>
+      </html>
+    </ClerkProvider>
+  );
 }

@@ -1,0 +1,39 @@
+[33mcommit 86bcc67e58d46d3040d0331fea64f5f2f5bb5447[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m
+Author: Andy Chen <achen2304@gmail.com>
+Date:   Sat Oct 11 16:37:29 2025 -0500
+
+    feat: added auth & canvas link (partially)
+
+.gitignore
+CLERK_SETUP.md
+README.md
+backend/.env
+backend/.env.example
+backend/SETUP.md
+backend/app/agents/sync_agent.py
+backend/app/middleware/auth.py
+backend/app/models/schemas.py
+backend/app/routers/actions.py
+backend/app/routers/auth.py
+backend/app/routers/calendar.py
+backend/app/routers/canvas.py
+backend/app/routers/ingest.py
+backend/app/routers/journal.py
+backend/app/routers/plan.py
+backend/app/routers/sync.py
+backend/app/services/canvas_service.py
+backend/app/services/google_calendar_service.py
+backend/app/services/sync_service.py
+backend/app/util/auth_helpers.py
+backend/app/util/db.py
+backend/main.py
+backend/requirements.txt
+docs/API_GUIDE.md
+docs/AUTHENTICATION.md
+frontend/app/dashboard/page.tsx
+frontend/app/layout.tsx
+frontend/app/page.tsx
+frontend/app/settings/page.tsx
+frontend/middleware.ts
+frontend/package-lock.json
+frontend/package.json

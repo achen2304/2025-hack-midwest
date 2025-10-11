@@ -1,169 +1,141 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Brain, Heart, BookOpen, Users, Calendar, Target } from 'lucide-react'
+import { SignInButton, SignUpButton, useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-export default function Home() {
-  const [selectedTab, setSelectedTab] = useState('today')
+export default function HomePage() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const router = useRouter();
 
-  const tabs = [
-    { id: 'today', label: 'Today', icon: Calendar },
-    { id: 'study', label: 'Study', icon: BookOpen },
-    { id: 'wellness', label: 'Wellness', icon: Heart },
-    { id: 'connect', label: 'Connect', icon: Users },
-  ]
-
-  const renderContent = () => {
-    switch (selectedTab) {
-      case 'today':
-        return (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white p-8 rounded-xl">
-              <h2 className="text-2xl font-bold mb-2">Good morning, Student!</h2>
-              <p className="text-primary-100">Here's your personalized overview for today.</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="card">
-                <div className="flex items-center mb-4">
-                  <Target className="h-6 w-6 text-primary-600 mr-2" />
-                  <h3 className="text-lg font-semibold">Today's Goals</h3>
-                </div>
-                <p className="text-gray-600">Complete calculus homework</p>
-                <p className="text-gray-600">Review biology notes</p>
-                <p className="text-gray-600">Journal entry</p>
-              </div>
-              
-              <div className="card">
-                <div className="flex items-center mb-4">
-                  <Calendar className="h-6 w-6 text-secondary-600 mr-2" />
-                  <h3 className="text-lg font-semibold">Upcoming</h3>
-                </div>
-                <p className="text-gray-600">Physics exam - Tomorrow</p>
-                <p className="text-gray-600">Group project - Friday</p>
-              </div>
-              
-              <div className="card">
-                <div className="flex items-center mb-4">
-                  <Brain className="h-6 w-6 text-accent-600 mr-2" />
-                  <h3 className="text-lg font-semibold">AI Insights</h3>
-                </div>
-                <p className="text-gray-600">Your study patterns are improving!</p>
-                <p className="text-gray-600">Consider taking breaks every 45 minutes.</p>
-              </div>
-            </div>
-          </div>
-        )
-      
-      case 'study':
-        return (
-          <div className="space-y-6">
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Study Hub</h2>
-              <p className="text-gray-600 mb-6">AI-powered study planning and academic support</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-3">Create Study Plan</h3>
-                  <p className="text-gray-600 mb-4">Get personalized study plans based on your courses and preferences.</p>
-                  <button className="btn-primary">Create Plan</button>
-                </div>
-                
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-3">Assignment Tracker</h3>
-                  <p className="text-gray-600 mb-4">Track and manage your assignments with AI assistance.</p>
-                  <button className="btn-secondary">View Assignments</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      
-      case 'wellness':
-        return (
-          <div className="space-y-6">
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Wellness Center</h2>
-              <p className="text-gray-600 mb-6">Mental health support and wellness tracking</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-3">Mood Tracker</h3>
-                  <p className="text-gray-600 mb-4">Track your mood and get insights into your emotional patterns.</p>
-                  <button className="btn-primary">Track Mood</button>
-                </div>
-                
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-3">Journal</h3>
-                  <p className="text-gray-600 mb-4">Express your thoughts and feelings in a safe space.</p>
-                  <button className="btn-secondary">Write Entry</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      
-      case 'connect':
-        return (
-          <div className="space-y-6">
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Connect</h2>
-              <p className="text-gray-600 mb-6">Connect with your academic community</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-3">Study Groups</h3>
-                  <p className="text-gray-600 mb-4">Find and join study groups for your courses.</p>
-                  <button className="btn-primary">Find Groups</button>
-                </div>
-                
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-3">Peer Support</h3>
-                  <p className="text-gray-600 mb-4">Connect with peers for mutual support and motivation.</p>
-                  <button className="btn-secondary">Connect</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      
-      default:
-        return null
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/dashboard');
     }
+  }, [isLoaded, isSignedIn, router]);
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Loading Clerk authentication...</p>
+          <p className="text-sm text-gray-500">
+            If this takes too long, check your Clerk configuration
+          </p>
+          <div className="mt-4">
+            <button
+              onClick={() => (window.location.href = '/dashboard')}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Skip to Dashboard (Debug)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">CampusMind</h1>
-        <p className="text-xl text-gray-600">Your AI-powered academic and wellness companion</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Hero */}
+          <div className="mb-12">
+            <h1 className="text-5xl font-bold text-gray-900 mb-4">
+              CampusMind 🧠
+            </h1>
+            <p className="text-xl text-gray-700 mb-2">
+              AI-powered academic and wellness assistant
+            </p>
+            <p className="text-lg text-gray-600">for college students</p>
+          </div>
+
+          {/* Features */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-4xl mb-3">📚</div>
+              <h3 className="font-semibold text-lg mb-2">Canvas Integration</h3>
+              <p className="text-gray-600 text-sm">
+                Automatic assignment sync and deadline tracking
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-4xl mb-3">📅</div>
+              <h3 className="font-semibold text-lg mb-2">Smart Scheduling</h3>
+              <p className="text-gray-600 text-sm">
+                AI-powered study session planning
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-4xl mb-3">🤖</div>
+              <h3 className="font-semibold text-lg mb-2">AI Agents</h3>
+              <p className="text-gray-600 text-sm">
+                Intelligent academic and wellness support
+              </p>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <h2 className="text-2xl font-bold mb-4">Get Started</h2>
+            <p className="text-gray-600 mb-6">
+              Sign in to access your personalized academic dashboard
+            </p>
+            <div className="flex gap-4 justify-center">
+              <SignInButton mode="modal">
+                <button className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">
+                  Sign In
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition">
+                  Sign Up
+                </button>
+              </SignUpButton>
+            </div>
+          </div>
+
+          {/* Features List */}
+          <div className="mt-12 text-left bg-white rounded-lg shadow-md p-8">
+            <h3 className="text-xl font-bold mb-4">Features</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-sm">Canvas LMS Integration</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-sm">Google Calendar Sync</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-sm">AI Study Planning</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-sm">Workload Analysis</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-yellow-500 mr-2">⏳</span>
+                <span className="text-sm text-gray-500">
+                  Mood Tracking (Coming Soon)
+                </span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-yellow-500 mr-2">⏳</span>
+                <span className="text-sm text-gray-500">
+                  Wellness Journal (Coming Soon)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-sm text-gray-600">
+            Built with ❤️ for Hack Midwest 2025
+          </div>
+        </div>
       </div>
-      
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-8">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedTab(tab.id)}
-                className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
-                  selectedTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <Icon className="h-5 w-5 mr-2" />
-                {tab.label}
-              </button>
-            )
-          })}
-        </nav>
-      </div>
-      
-      {/* Tab Content */}
-      {renderContent()}
     </div>
-  )
+  );
 }

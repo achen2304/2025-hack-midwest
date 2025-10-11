@@ -1,0 +1,33 @@
+# CampusMind Backend Dependencies
+
+# FastAPI Framework
+fastapi==0.119.0
+uvicorn[standard]==0.37.0
+python-multipart==0.0.20
+
+# Database
+motor==3.7.1
+pymongo==4.15.3
+
+# Authentication & Security (compatible with strands-agents-tools)
+pyjwt[crypto]==2.10.1
+cryptography==46.0.2
+python-jose[cryptography]==3.3.0
+
+# HTTP Client
+httpx==0.28.1
+
+# Environment Variables
+python-dotenv==1.1.1
+
+# AI/ML Libraries
+strands-agents==1.12.0
+strands-agents-tools==0.2.11
+boto3==1.40.50
+
+# Data Processing
+numpy==2.2.6
+
+# Utilities
+pydantic==2.12.0
+pydantic-settings==2.11.0

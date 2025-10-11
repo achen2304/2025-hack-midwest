@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from app.routers import ingest, journal, plan, canvas, actions
+from app.routers import ingest, journal, plan, canvas, actions, calendar, sync, auth
 
 # Import database manager
 from app.util.db import db_manager
@@ -54,10 +54,13 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router)  # Auth endpoints (no auth required)
 app.include_router(ingest.router)
 app.include_router(journal.router)
 app.include_router(plan.router)
 app.include_router(canvas.router)
+app.include_router(calendar.router)
+app.include_router(sync.router)
 app.include_router(actions.router)
 
 @app.get("/")

@@ -2,287 +2,325 @@
 
 **AI-powered academic and wellness assistant for college students**
 
-CampusMind is a comprehensive full-stack application that leverages AI agents to provide personalized academic guidance and wellness support for college students. Built with FastAPI, Next.js, MongoDB Atlas with Vector Search, and the Strands Agents SDK.
+CampusMind is a comprehensive full-stack application that leverages AI agents to provide personalized academic guidance and wellness support for college students. Built for Hack Midwest 2025.
 
-## 🚀 Features
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green.svg)](https://www.mongodb.com/atlas)
+[![Clerk](https://img.shields.io/badge/Auth-Clerk-blue.svg)](https://clerk.com)
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- MongoDB Atlas account
+- Canvas LMS access (optional)
+- Google account (for Calendar integration)
+
+### Backend Setup (5 minutes)
+
+```bash
+cd backend
+
+# Install dependencies
+pip install fastapi uvicorn motor pymongo python-dotenv httpx pyjwt
+
+# Copy environment file
+cp .env.example .env
+
+# Edit .env with your MongoDB URI
+# For testing without Clerk, leave CLERK_SECRET_KEY commented
+
+# Start server
+uvicorn main:app --reload
+```
+
+**Server running at:** http://localhost:8000
+**API Docs:** http://localhost:8000/docs
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+**App running at:** http://localhost:3000
+
+## 📚 Documentation
+
+- **[Authentication Setup](./docs/AUTHENTICATION.md)** - Clerk setup, dev tokens, testing
+- **[API Guide](./docs/API_GUIDE.md)** - Complete endpoint reference
+- **[Canvas Integration](./docs/CANVAS_INTEGRATION.md)** - LMS setup and sync
+- **[Google Calendar Setup](./docs/GOOGLE_CALENDAR.md)** - Calendar integration
+- **[Database Schema](./docs/DATABASE.md)** - MongoDB collections and indexes
+- **[AI Agents](./docs/AI_AGENTS.md)** - Strands SDK agent system
+- **[Development Guide](./docs/DEVELOPMENT.md)** - Contributing and testing
+- **[Deployment](./docs/DEPLOYMENT.md)** - Production deployment guide
+
+## ✨ Features
 
 ### Academic Support
-- **AI Study Coach**: Personalized study planning and academic guidance
-- **Assignment Tracker**: Canvas LMS integration for assignment management
-- **Study Plans**: AI-generated study schedules based on courses and preferences
-- **Performance Analytics**: Track academic progress and identify improvement areas
+- ✅ **Canvas LMS Integration** - Automatic assignment sync
+- ✅ **Assignment Tracker** - Track deadlines and submissions
+- ✅ **Smart Scheduling** - AI-powered study session planning
+- ✅ **Course Management** - Track and organize courses
+- 🔄 **Study Plans** - AI-generated study schedules (in progress)
+- 🔄 **Grade Analytics** - Performance tracking (in progress)
 
 ### Wellness & Mental Health
-- **Wellness Companion**: AI-powered mental health support
-- **Mood Tracking**: Track emotional patterns and get insights
-- **Journal System**: Safe space for self-reflection and emotional expression
-- **Wellness Activities**: Personalized suggestions for mental health maintenance
+- 🔄 **Mood Tracking** - Track emotional patterns (in progress)
+- 🔄 **Journal System** - Safe space for reflection (in progress)
+- 🔄 **AI Wellness Companion** - Mental health support (in progress)
+- 🔄 **Wellness Activities** - Personalized suggestions (in progress)
 
-### Smart Context
-- **Vector Search**: Semantic search through notes, assignments, and journal entries
-- **Context Enrichment**: AI agents use historical data to provide better responses
-- **Multi-modal Support**: Text, mood, and behavioral pattern analysis
+### Smart Integration
+- ✅ **Google Calendar Sync** - Automatic event creation
+- ✅ **Strands AI Agents** - Intelligent task orchestration
+- ✅ **Clerk Authentication** - Secure user management
+- ✅ **Vector Search** - Semantic search (MongoDB Atlas)
 
 ## 🏗️ Architecture
 
 ```
 CampusMind/
-├── backend/          # FastAPI Python backend
-├── frontend/         # Next.js 14 TypeScript frontend
-├── infra/           # Infrastructure configuration
-└── README.md
+├── backend/              # FastAPI Python backend
+│   ├── app/
+│   │   ├── agents/       # AI agents (Strands SDK)
+│   │   ├── routers/      # API endpoints
+│   │   ├── services/     # Business logic
+│   │   ├── models/       # Pydantic schemas
+│   │   ├── middleware/   # Auth middleware
+│   │   └── util/         # Helper utilities
+│   └── main.py           # FastAPI app entry
+├── frontend/             # Next.js 14 TypeScript frontend
+├── docs/                 # Comprehensive documentation
+└── infra/               # Infrastructure configs
 ```
 
-### Backend Architecture
-- **FastAPI**: Modern Python web framework
-- **MongoDB Atlas**: Database with vector search capabilities
-- **Strands Agents SDK**: AI agent orchestration
-- **Vector Embeddings**: OpenAI embeddings for semantic search
+### Tech Stack
 
-### Frontend Architecture
-- **Next.js 14**: React framework with App Router
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first styling
-- **Responsive Design**: Mobile-first approach
+**Backend:**
+- FastAPI - Modern async web framework
+- MongoDB Atlas - NoSQL database with vector search
+- Clerk - Authentication & user management
+- Strands Agents SDK - AI agent orchestration
+- PyJWT - JWT token validation
 
-## 🛠️ Tech Stack
+**Frontend:**
+- Next.js 14 - React framework with App Router
+- TypeScript - Type-safe development
+- Tailwind CSS - Utility-first styling
+- Clerk React - Authentication components
 
-### Backend
-- **FastAPI** - Web framework
-- **MongoDB Atlas** - Database with vector search
-- **Motor** - Async MongoDB driver
-- **Strands Agents SDK** - AI agent framework
-- **OpenAI API** - Embeddings generation
-- **Pydantic** - Data validation
+**Integrations:**
+- Canvas LMS API - Academic data
+- Google Calendar API - Event management
+- OpenAI - Embeddings (optional)
 
-### Frontend
-- **Next.js 14** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **Lucide React** - Icons
-- **React Hook Form** - Form handling
+## 🔐 Authentication
 
-### Infrastructure
-- **MongoDB Atlas Vector Search** - Semantic search
-- **Canvas LMS API** - Academic data integration
-- **Postman** - API testing
+CampusMind uses **Clerk** for authentication with JWT tokens. All API endpoints (except `/docs`, `/health`, `/auth/dev-token`) require authentication.
 
-## 🚀 Quick Start
+### Testing without Clerk (Development)
 
-### Prerequisites
-- Python 3.8+
-- Node.js 18+
-- MongoDB Atlas account
-- OpenAI API key (optional, for embeddings)
+```bash
+# Get a dev token
+curl -X POST http://localhost:8000/auth/dev-token \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "test_user", "email": "test@example.com"}'
 
-### Backend Setup
+# Use token in requests
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8000/canvas/courses
+```
 
-1. **Navigate to backend directory**
-   ```bash
-   cd backend
-   ```
+See [Authentication Setup](./docs/AUTHENTICATION.md) for full Clerk configuration.
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
+## 📖 API Documentation
 
-3. **Install dependencies**
-   ```bash
-   pip install fastapi uvicorn[standard] motor pymongo python-dotenv httpx numpy strands-agents-sdk
-   ```
+Interactive API documentation is automatically generated by FastAPI:
 
-4. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your MongoDB URI and other configurations
-   ```
-
-5. **Start the backend server**
-   ```bash
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-### Frontend Setup
-
-1. **Navigate to frontend directory**
-   ```bash
-   cd frontend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser**
-   ```
-   http://localhost:3000
-   ```
-
-## 📊 API Documentation
-
-Once the backend is running, visit:
-- **Interactive API Docs**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
 
 ### Key Endpoints
 
-#### Health Check
-```
-GET /health
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/dev-token` | POST | Get dev JWT token (testing only) |
+| `/canvas/connect` | POST | Connect Canvas account |
+| `/canvas/courses` | GET | Get Canvas courses |
+| `/canvas/assignments/upcoming` | GET | Get upcoming assignments |
+| `/calendar/auth-url` | GET | Get Google OAuth URL |
+| `/calendar/events` | GET | Get calendar events |
+| `/sync/canvas-to-calendar` | POST | Sync Canvas → Calendar |
+| `/sync/agent/ask` | POST | Ask Strands AI agent |
 
-#### Journal Management
-```
-POST /journal/entries          # Create journal entry
-GET /journal/entries          # Get user's journal entries
-GET /journal/mood-trends      # Get mood analytics
-```
-
-#### Study Plans
-```
-POST /plan/plans              # Create study plan
-GET /plan/plans               # Get user's study plans
-POST /plan/generate           # Generate AI study plan
-```
-
-#### AI Actions
-```
-POST /actions/academic        # Academic coaching
-POST /actions/wellness        # Wellness support
-```
-
-#### Canvas Integration
-```
-GET /canvas/courses           # Get Canvas courses
-GET /canvas/assignments       # Get Canvas assignments
-POST /canvas/sync             # Sync Canvas data
-```
+See [API Guide](./docs/API_GUIDE.md) for complete endpoint reference.
 
 ## 🤖 AI Agents
 
-### Academic Coach
-- Analyzes study patterns
-- Creates personalized study plans
-- Provides academic improvement suggestions
-- Integrates with Canvas LMS
+CampusMind uses the **Strands Agents SDK** for intelligent task orchestration:
 
-### Wellness Companion
-- Monitors mood patterns
-- Suggests wellness activities
-- Provides emotional support
-- Tracks mental health trends
+- **Academic Coach** - Study planning and academic guidance
+- **Wellness Companion** - Mental health support
+- **Sync Agent** - Workload analysis and smart scheduling
+- **Context Enricher** - Vector search for historical data
+- **Action Agent** - External service integration
 
-### Context Enricher
-- Uses vector search to find relevant context
-- Enriches agent responses with historical data
-- Maintains user context across sessions
+Example usage:
 
-### Action Agent
-- Executes specific actions (Canvas sync, notifications)
-- Manages integrations with external services
-- Handles calendar and communication tasks
-
-## 🗄️ Database Schema
-
-### Collections
-- **users**: User profiles and preferences
-- **journal_entries**: Mood tracking and reflections
-- **assignments**: Academic assignments and deadlines
-- **study_plans**: AI-generated study schedules
-- **canvas_courses**: Canvas LMS course data
-- **vector_embeddings**: Embeddings for semantic search
-
-### Vector Search Indexes
-- **notes_vector_search**: Semantic search for notes and journal entries
-- **assignments_vector_search**: Semantic search for assignments and course content
-
-## 🔧 Configuration
-
-### Environment Variables
-
-#### Backend (.env)
 ```bash
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/
-DB_NAME=campusmind
-CANVAS_BASE=https://your-university.instructure.com
-CANVAS_CLIENT_ID=your_canvas_client_id
-CANVAS_CLIENT_SECRET=your_canvas_client_secret
-CANVAS_REDIRECT_URI=http://localhost:8000/canvas/callback
-OPENAI_API_KEY=your_openai_api_key
+curl -X POST http://localhost:8000/sync/agent/ask \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What assignments do I have this week?",
+    "context": {}
+  }'
 ```
 
-### MongoDB Atlas Setup
+See [AI Agents Guide](./docs/AI_AGENTS.md) for more details.
 
-1. **Create a cluster** on MongoDB Atlas
-2. **Create vector search indexes** using the configurations in `infra/atlas_indexes/`
-3. **Configure network access** to allow connections from your application
-4. **Create database user** with read/write permissions
+## 🗄️ Database
+
+MongoDB Atlas with vector search capabilities:
+
+### Collections
+- `users` - User profiles and preferences
+- `canvas_tokens` - Canvas authentication tokens
+- `google_tokens` - Google Calendar tokens
+- `tracked_courses` - Courses being monitored
+- `canvas_assignments` - Assignment data with sync status
+- `calendar_events` - Calendar events
+- `sync_state` - User sync configuration
+- `journal_entries` - Wellness journal entries
+- `study_plans` - AI-generated study plans
+
+See [Database Schema](./docs/DATABASE.md) for details.
 
 ## 🧪 Testing
 
-### API Testing
-Import the Postman collection from `infra/postman/smoke_tests.json` to test basic API functionality.
+### Backend Testing
 
-### Running Tests
 ```bash
-# Backend tests (when implemented)
-cd backend
-pytest
+# Test health endpoint
+curl http://localhost:8000/health
 
-# Frontend tests (when implemented)
-cd frontend
-npm test
+# Get dev token
+curl -X POST http://localhost:8000/auth/dev-token
+
+# Test authenticated endpoint
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8000/canvas/test
 ```
 
-## 🚀 Deployment
+### Using Postman
 
-### Backend Deployment
-1. **Set up production environment variables**
-2. **Deploy to cloud platform** (Railway, Heroku, AWS, etc.)
-3. **Configure MongoDB Atlas** for production
-4. **Set up monitoring and logging**
+1. Import collection from `infra/postman/` (if available)
+2. Get dev token from `/auth/dev-token`
+3. Set as Bearer token in Authorization
+4. Test all endpoints
 
-### Frontend Deployment
-1. **Build the application**
-   ```bash
-   npm run build
-   ```
-2. **Deploy to Vercel, Netlify, or similar platform**
-3. **Configure environment variables** for production
+See [Development Guide](./docs/DEVELOPMENT.md) for testing strategies.
+
+## 🚢 Deployment
+
+### Backend (Railway/Render/Heroku)
+
+```bash
+# Install production dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+MONGODB_URI=your_mongodb_uri
+CLERK_SECRET_KEY=your_clerk_secret
+CLERK_JWKS_URL=your_jwks_url
+
+# Start with production server
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### Frontend (Vercel/Netlify)
+
+```bash
+npm run build
+npm start
+```
+
+See [Deployment Guide](./docs/DEPLOYMENT.md) for detailed instructions.
+
+## 📁 Project Structure
+
+```
+backend/
+├── app/
+│   ├── agents/              # AI agents
+│   │   ├── academic_coach.py
+│   │   ├── sync_agent.py
+│   │   └── wellness_companion.py
+│   ├── middleware/          # Auth middleware
+│   │   └── auth.py          # Clerk JWT validation
+│   ├── models/              # Pydantic schemas
+│   │   └── schemas.py
+│   ├── routers/             # API endpoints
+│   │   ├── auth.py          # Authentication
+│   │   ├── canvas.py        # Canvas LMS
+│   │   ├── calendar.py      # Google Calendar
+│   │   ├── sync.py          # Sync orchestration
+│   │   └── ...
+│   ├── services/            # Business logic
+│   │   ├── canvas_service.py
+│   │   ├── google_calendar_service.py
+│   │   └── sync_service.py
+│   └── util/                # Utilities
+│       ├── auth_helpers.py  # Auth helper functions
+│       └── db.py            # Database manager
+├── .env.example             # Environment template
+└── main.py                  # FastAPI application
+```
 
 ## 🤝 Contributing
 
-1. **Fork the repository**
-2. **Create a feature branch**
-3. **Make your changes**
-4. **Add tests** for new functionality
-5. **Submit a pull request**
+Contributions are welcome! Please see [Development Guide](./docs/DEVELOPMENT.md).
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests (when test suite is ready)
+5. Submit a pull request
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- **Strands** for the Agents SDK
-- **OpenAI** for embedding models
-- **Canvas** for LMS integration
-- **MongoDB** for vector search capabilities
+- **Strands** - AI Agents SDK
+- **Clerk** - Authentication platform
+- **Canvas** - LMS integration
+- **MongoDB** - Vector search capabilities
+- **FastAPI** - Modern Python web framework
+- **Next.js** - React framework
 
 ## 📞 Support
 
-For support and questions:
-- Create an issue in the GitHub repository
-- Contact the development team
+- **Documentation:** [./docs](./docs/)
+- **Issues:** [GitHub Issues](https://github.com/your-repo/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/your-repo/discussions)
 
 ---
 
-**Built with ❤️ for college students everywhere**
+**Built with ❤️ for Hack Midwest 2025**
+
+*Empowering college students with AI-driven academic and wellness support*
