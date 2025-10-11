@@ -4,9 +4,14 @@ AI-powered academic and wellness assistant for college students
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
+from jose import jwt, JWTError
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
+from fastapi import Depends, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 
 # Load environment variables
 load_dotenv()
@@ -43,6 +48,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+SECRET = os.environ.get("BACKEND_JWT_SECRET", "dev-secret")
+ALGS = ["HS256"]
+ISS = "nextapp"
+AUD = "fastapi"
+
+security = HTTPBearer()
 
 # Configure CORS
 app.add_middleware(
@@ -84,6 +96,42 @@ async def health_check():
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
+
+
+
+
+def verify_backend_token(creds: HTTPAuthorizationCredentials = Depends(security)):
+    token = creds.credentials
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET,
+            algorithms=ALGS,
+            audience=AUD,
+            issuer=ISS,
+        )
+    except JWTError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    # optional: check custom claims here
+    return payload  # contains sub, email, name, picture, iat, exp, iss, aud
+
+@app.get("/protected")
+def protected_route(user=Depends(verify_backend_token)):
+    return {
+        "ok": True,
+        "sub": user.get("sub"),
+        "email": user.get("email"),
+        "name": user.get("name"),
+    }
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     import uvicorn
