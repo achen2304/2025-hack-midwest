@@ -1,0 +1,145 @@
+{
+  "info": {
+    "name": "CampusMind API Smoke Tests",
+    "description": "Basic smoke tests for CampusMind API endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Root Endpoint",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": ["{{base_url}}"],
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "Create Journal Entry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"test-entry-1\",\n  \"user_id\": \"test-user\",\n  \"content\": \"This is a test journal entry\",\n  \"mood\": \"good\",\n  \"tags\": [\"test\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/journal/entries",
+          "host": ["{{base_url}}"],
+          "path": ["journal", "entries"]
+        }
+      }
+    },
+    {
+      "name": "Get Journal Entries",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/journal/entries?user_id=test-user&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["journal", "entries"],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "test-user"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Study Plan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"test-plan-1\",\n  \"user_id\": \"test-user\",\n  \"title\": \"Test Study Plan\",\n  \"description\": \"This is a test study plan\",\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"title\": \"Complete homework\",\n      \"completed\": false\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/plan/plans",
+          "host": ["{{base_url}}"],
+          "path": ["plan", "plans"]
+        }
+      }
+    },
+    {
+      "name": "Academic Action",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"Help me create a study plan for calculus\",\n  \"user_id\": \"test-user\",\n  \"context\": {\n    \"course\": \"Calculus 101\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/actions/academic",
+          "host": ["{{base_url}}"],
+          "path": ["actions", "academic"]
+        }
+      }
+    },
+    {
+      "name": "Wellness Action",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"I'm feeling stressed about my exams\",\n  \"user_id\": \"test-user\",\n  \"context\": {\n    \"current_mood\": \"anxious\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/actions/wellness",
+          "host": ["{{base_url}}"],
+          "path": ["actions", "wellness"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ]
+}
