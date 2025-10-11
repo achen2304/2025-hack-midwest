@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { Brain, Heart, BookOpen, Users, Calendar, Target } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
   const [selectedTab, setSelectedTab] = useState('today')
@@ -131,6 +133,8 @@ export default function Home() {
         return null
     }
   }
+
+  const { data: session, status } = useSession()
 
   return (
     <div className="max-w-7xl mx-auto">

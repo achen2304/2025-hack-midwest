@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { Brain, Menu, X, Settings, LogOut, User } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const router = useRouter()
 
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200">
@@ -43,6 +45,12 @@ export default function Navbar() {
                 <User className="h-6 w-6" />
                 <span>Student User</span>
               </button>
+            <button
+              onClick={() => router.push('/login')}
+              className="ml-4 px-3 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+            >
+              Sign In
+            </button>
               
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
