@@ -93,6 +93,7 @@ export default function Signup() {
       }
       router.push('/onboarding');
       router.refresh();
+      return;
     });
   }
 
