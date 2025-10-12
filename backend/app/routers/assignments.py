@@ -15,7 +15,7 @@ Status Rules:
   → Sync will NEVER overwrite in_progress status
 """
 from fastapi import APIRouter, HTTPException, Depends, status, Query
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
 from typing import List, Optional
 
@@ -37,11 +37,15 @@ async def get_assignments(
     course_id: Optional[str] = Query(None, description="Filter by course ID"),
     due_before: Optional[datetime] = Query(None, description="Filter assignments due before this date"),
     due_after: Optional[datetime] = Query(None, description="Filter assignments due after this date"),
+    weeks: Optional[int] = Query(6, ge=1, le=52, description="Number of weeks to fetch (default: 6)"),
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
     """
-    Get all assignments from MongoDB database (synced from Canvas)
+    Get assignments from MongoDB database (synced from Canvas)
+
+    By default, fetches assignments for the next 6 weeks.
+    Use 'weeks' parameter to adjust the time window (1-52 weeks).
 
     This pulls from the local database, NOT directly from Canvas.
     To sync latest from Canvas, use POST /canvas/sync first.
@@ -77,6 +81,7 @@ async def get_assignments(
         if course_id:
             query["course_id"] = course_id
 
+        # Date filtering: default to next 4-6 weeks if not specified
         if due_before or due_after:
             date_query = {}
             if due_before:
@@ -84,6 +89,14 @@ async def get_assignments(
             if due_after:
                 date_query["$gte"] = due_after
             query["due_date"] = date_query
+        else:
+            # Default: fetch assignments for the next N weeks
+            now = datetime.utcnow()
+            future_date = now + timedelta(weeks=weeks)
+            query["due_date"] = {
+                "$gte": now,
+                "$lte": future_date
+            }
 
         # Fetch assignments from database, sorted by due_date
         cursor = db.assignments.find(query).sort("due_date", 1)
@@ -267,10 +280,11 @@ async def update_assignment_status(
 
 @router.get("/count/by-status")
 async def get_assignment_counts(
+    weeks: Optional[int] = Query(6, ge=1, le=52, description="Number of weeks to count (default: 6)"),
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Get count of assignments by status"""
+    """Get count of assignments by status (default: next 6 weeks)"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
@@ -293,20 +307,33 @@ async def get_assignment_counts(
 
         db_user_id = str(user_doc["_id"])
 
+        # Build date filter for next N weeks
+        now = datetime.utcnow()
+        future_date = now + timedelta(weeks=weeks)
+        date_filter = {
+            "due_date": {
+                "$gte": now,
+                "$lte": future_date
+            }
+        }
+
         # Count assignments by status
         not_started = await db.assignments.count_documents({
             "user_id": db_user_id,
-            "status": "not_started"
+            "status": "not_started",
+            **date_filter
         })
 
         in_progress = await db.assignments.count_documents({
             "user_id": db_user_id,
-            "status": "in_progress"
+            "status": "in_progress",
+            **date_filter
         })
 
         completed = await db.assignments.count_documents({
             "user_id": db_user_id,
-            "status": "completed"
+            "status": "completed",
+            **date_filter
         })
 
         total = not_started + in_progress + completed

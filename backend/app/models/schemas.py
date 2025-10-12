@@ -201,3 +201,78 @@ class CanvasCalendarSyncResponse(BaseModel):
     message: str
     events_synced: int
     courses_included: int
+
+# Health Check and Feeling Level Models
+class FeelingLevel(int, Enum):
+    GREAT = 1
+    GOOD = 2
+    OKAY = 3
+    STRESSED = 4
+    OVERWHELMED = 5
+
+class CourseFeeling(BaseModel):
+    course_id: str = Field(..., description="Course ID")
+    course_name: str = Field(..., description="Course name")
+    feeling_level: FeelingLevel = Field(..., description="How the user feels about this course (1=great, 5=overwhelmed)")
+    recorded_at: datetime = Field(default_factory=datetime.utcnow, description="When this feeling was recorded")
+
+class HealthCheckIn(BaseModel):
+    message: str = Field(..., description="User's response to the health check")
+    sentiment: Optional[str] = Field(None, description="Detected sentiment (positive, neutral, negative)")
+    current_study_context: Optional[str] = Field(None, description="What the user is currently studying")
+    course_feelings: Optional[List[CourseFeeling]] = Field(default_factory=list, description="Feelings about specific courses")
+
+class HealthCheckResponse(BaseModel):
+    id: str
+    user_id: str
+    message: str
+    sentiment: Optional[str] = None
+    current_study_context: Optional[str] = None
+    course_feelings: List[CourseFeeling] = Field(default_factory=list)
+    created_at: datetime
+    next_checkin_minutes: Optional[int] = Field(None, description="Minutes until next check-in")
+
+class HealthCheckInRequest(BaseModel):
+    message: str = Field(..., description="User's message/feeling")
+    current_course_id: Optional[str] = Field(None, description="Course ID user is currently studying")
+    feeling_level: Optional[FeelingLevel] = Field(None, description="Current feeling level for the course being studied")
+
+# Study Session Models
+class StudySessionCreate(BaseModel):
+    course_id: str = Field(..., description="Course being studied")
+    assignment_id: Optional[str] = Field(None, description="Related assignment if any")
+    planned_duration: int = Field(..., description="Planned study duration in minutes")
+
+class StudySessionUpdate(BaseModel):
+    actual_duration: Optional[int] = Field(None, description="Actual study duration in minutes")
+    feeling_before: Optional[FeelingLevel] = Field(None, description="Feeling level before study session")
+    feeling_after: Optional[FeelingLevel] = Field(None, description="Feeling level after study session")
+    completed: bool = Field(default=False, description="Whether the session was completed")
+    notes: Optional[str] = Field(None, description="Session notes")
+
+class StudySessionResponse(BaseModel):
+    id: str
+    user_id: str
+    course_id: str
+    assignment_id: Optional[str] = None
+    planned_duration: int
+    actual_duration: Optional[int] = None
+    feeling_before: Optional[FeelingLevel] = None
+    feeling_after: Optional[FeelingLevel] = None
+    completed: bool = False
+    notes: Optional[str] = None
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+
+# AI Schedule Generation Models
+class ScheduleGenerationRequest(BaseModel):
+    prioritize_courses: Optional[List[str]] = Field(default_factory=list, description="Course IDs to prioritize")
+    start_date: Optional[datetime] = Field(None, description="Start date for schedule generation")
+    end_date: Optional[datetime] = Field(None, description="End date for schedule generation")
+    regenerate: bool = Field(default=False, description="Force regeneration of schedule")
+
+class ScheduleGenerationResponse(BaseModel):
+    success: bool
+    message: str
+    study_blocks_created: int
+    break_blocks_created: int

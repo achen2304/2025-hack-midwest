@@ -18,7 +18,7 @@ from app.util.db import db_manager
 from app.util.auth import verify_backend_token
 
 # Import routers
-from app.routers import user, canvas, assignments, calendar
+from app.routers import user, canvas, assignments, calendar, health, schedule
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -100,6 +100,8 @@ app.include_router(user.router)
 app.include_router(canvas.router)
 app.include_router(assignments.router)
 app.include_router(calendar.router)
+app.include_router(health.router)
+app.include_router(schedule.router)
 
 
 if __name__ == "__main__":
