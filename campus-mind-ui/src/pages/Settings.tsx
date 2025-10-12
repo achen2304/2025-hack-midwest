@@ -9,9 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Upload, Calendar, Link as LinkIcon } from "lucide-react";
+import axios from "axios";
 
 const Settings = () => {
   const [profileImage, setProfileImage] = useState<string>("");
+  const [canvasToken, setCanvasToken] = useState<string>("");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -21,6 +23,16 @@ const Settings = () => {
         setProfileImage(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCanvasTokenUpdate = async () => {
+    try {
+      const response = await axios.post("/api/canvas/token", { token: canvasToken });
+      alert("Canvas token updated successfully!");
+    } catch (error) {
+      console.error("Error updating Canvas token:", error);
+      alert("Failed to update Canvas token. Please try again.");
     }
   };
 
@@ -158,6 +170,8 @@ const Settings = () => {
                     type="password"
                     placeholder="Enter your Canvas API token"
                     className="flex-1"
+                    value={canvasToken}
+                    onChange={(e) => setCanvasToken(e.target.value)}
                   />
                   <Button variant="outline" size="icon">
                     <LinkIcon className="h-4 w-4" />
@@ -168,7 +182,7 @@ const Settings = () => {
                 </p>
               </div>
 
-              <Button>Update Token</Button>
+              <Button onClick={handleCanvasTokenUpdate}>Update Token</Button>
             </CardContent>
           </Card>
         </TabsContent>
