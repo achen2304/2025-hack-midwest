@@ -537,13 +537,13 @@ async def get_canvas_assignments(
                     submission = assignment.get("submission", {})
                     workflow_state = submission.get("workflow_state", "unsubmitted")
 
-                    # Map Canvas workflow_state to our status
+                    # Map Canvas workflow_state to our assignment_status
                     # Note: Canvas can only set not_started or completed
                     # "in_progress" can ONLY be set manually by the user
                     if workflow_state in ["submitted", "pending_review", "graded", "complete"]:
-                        status = "completed"  # Student has submitted
+                        assignment_status = "completed"  # Student has submitted
                     else:
-                        status = "not_started"
+                        assignment_status = "not_started"
 
                     all_assignments.append(CanvasAssignmentResponse(
                         id=str(assignment["id"]),
@@ -555,7 +555,7 @@ async def get_canvas_assignments(
                         course_code=course.get("course_code", ""),
                         points_possible=assignment.get("points_possible"),
                         submission_types=assignment.get("submission_types", []),
-                        status=status,
+                        status=assignment_status,
                         canvas_workflow_state=workflow_state
                     ))
                     
