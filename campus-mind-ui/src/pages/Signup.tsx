@@ -63,6 +63,10 @@ export default function Signup() {
   const [err, setErr] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const handleSocialAuth = (provider: string) => {
+    signIn('google', {callbackUrl: '/dashboard' });
+  };
+
   async function onSubmit(e: React.FormEvent) {
     setErr(null);
 
@@ -86,20 +90,14 @@ export default function Signup() {
       
 
       // Sign in after signup
-      const login = await signIn('credentials', { email: form.getValues("email"), password: form.getValues("password"), redirect: false });
+      const login = await signIn('credentials', { email: form.getValues("email"), password: form.getValues("password"), redirect: true, callbackUrl: "/onboarding" });
       if (login?.error) {
         // If auto-login fails, return
         return;
       }
-      router.push('/onboarding');
-      router.refresh();
       return;
     });
   }
-
-  const handleSocialAuth = (provider: string) => {
-    signIn('google', {callbackUrl: '/dashboard' });
-  };
 
   if (status === "loading") {
       return (
