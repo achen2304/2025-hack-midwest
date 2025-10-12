@@ -89,7 +89,7 @@ export default function Signup() {
         // If auto-login fails, return
         return;
       }
-      router.push('/dashboard');
+      router.push('/onboarding');
       router.refresh();
     });
   }

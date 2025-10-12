@@ -20,7 +20,7 @@ const Today = async () => {
   
   return (
     <div className="min-h-screen">
-      <DashboardHeader userName="Hemanth" tasksDue={3} />
+      <DashboardHeader userName={session.user.name} tasksDue={3} />
 
       <div className="mt-6 space-y-6">
         <DashboardGreeting userName="Hemanth" tasksDue={3} />
