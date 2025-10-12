@@ -6,8 +6,18 @@ import TasksAssignments from "@/components/dashboard/TasksAssignments";
 import WeekCalendar from "@/components/dashboard/WeekCalendar";
 import UpcomingEventsList from "@/components/dashboard/UpcomingEventsList";
 import AIRecommendations from "@/components/dashboard/AIRecommendations";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-const Today = () => {
+const Today = async () => {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    // If not authenticated, you can redirect to login or show a message
+    redirect('/login');
+  }
+  
   return (
     <div className="min-h-screen">
       <DashboardHeader userName="Hemanth" tasksDue={3} />

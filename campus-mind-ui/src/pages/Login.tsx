@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -15,7 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, Brain } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast, useToast } from "@/hooks/use-toast";
+import { signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -26,9 +28,11 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const router = useRouter();
-  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
+
+  const { data: session, status } = useSession();
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -36,29 +40,33 @@ export default function Login() {
       email: "",
       password: "",
     },
-  });
+    });
 
-  const onSubmit = async (data: LoginForm) => {
+  if (session) {
+    router.push('/dashboard');
+    return null;
+  }
+
+  async function onSubmit(e: React.FormEvent) {
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Placeholder for actual authentication logic
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Simulate success
+    startTransition(async () => {
+      const res = await signIn('credentials', { email: form.getValues("email"), password: form.getValues("password"), redirect: false });
+      if (res?.error) {
+        setError(res.error || 'Invalid email or password');
+        setIsLoading(false);
+        return;
+      }
+
       toast({
         title: "Welcome back!",
         description: "You've successfully logged in.",
       });
-      
-      router.push("/dashboard");
-    } catch (err) {
-      setError("Email or password is incorrect. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      router.push('/dashboard');
+      router.refresh();
+    });
+  }
 
   const handleSocialAuth = (provider: string) => {
     toast({
@@ -66,6 +74,14 @@ export default function Login() {
       description: `${provider} authentication will be available soon.`,
     });
   };
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-12 w-12 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">

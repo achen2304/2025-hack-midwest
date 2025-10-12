@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Loader2, Brain } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { signIn, useSession } from "next-auth/react";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -42,6 +43,8 @@ export default function Signup() {
   const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const { data: session, status } = useSession();
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -54,27 +57,42 @@ export default function Signup() {
     },
   });
 
-  const onSubmit = async (data: SignupForm) => {
-    setIsLoading(true);
-    setError(null);
 
-    try {
-      // Placeholder for actual authentication logic
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Simulate success
+  const [err, setErr] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  async function onSubmit(e: React.FormEvent) {
+    setErr(null);
+
+    startTransition(async () => {
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.getValues("name"), email: form.getValues("email"), password: form.getValues("password") }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErr(data?.error || 'Failed to sign up');
+        return;
+      }
+
       toast({
         title: "Account created! 🎉",
         description: "Welcome to CampusMind. Let's get started!",
       });
       
-      router.push("/dashboard");
-    } catch (err) {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
+      // Sign in after signup
+      const login = await signIn('credentials', { email: form.getValues("email"), password: form.getValues("password"), redirect: false });
+      if (login?.error) {
+        // If auto-login fails, return
+        return;
+      }
+      router.push('/dashboard');
+      router.refresh();
+    });
+  }
 
   const handleSocialAuth = (provider: string) => {
     toast({
@@ -82,6 +100,14 @@ export default function Signup() {
       description: `${provider} authentication will be available soon.`,
     });
   };
+
+  if (status === "loading") {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-12 w-12 text-primary animate-spin" />
+        </div>
+      );
+    }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
