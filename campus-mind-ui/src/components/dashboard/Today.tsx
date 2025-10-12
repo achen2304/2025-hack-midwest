@@ -1,30 +1,34 @@
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import DashboardGreeting from "@/components/dashboard/DashboardGreeting";
-import QuickStatsCards from "@/components/dashboard/QuickStatsCards";
-import TodayStudyPlan from "@/components/dashboard/TodayStudyPlan";
-import TasksAssignments from "@/components/dashboard/TasksAssignments";
-import WeekCalendar from "@/components/dashboard/WeekCalendar";
-import UpcomingEventsList from "@/components/dashboard/UpcomingEventsList";
-import AIRecommendations from "@/components/dashboard/AIRecommendations";
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import DashboardGreeting from '@/components/dashboard/DashboardGreeting';
+import QuickStatsCards from '@/components/dashboard/QuickStatsCards';
+import TodayStudyPlan from '@/components/dashboard/TodayStudyPlan';
+import TasksAssignments from '@/components/dashboard/TasksAssignments';
+import WeekCalendar from '@/components/dashboard/WeekCalendar';
+import UpcomingEventsList from '@/components/dashboard/UpcomingEventsList';
+import AIRecommendations from '@/components/dashboard/AIRecommendations';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
 
 const Today = async () => {
   const session = await getServerSession(authOptions);
-  
+
   if (!session) {
     // If not authenticated, you can redirect to login or show a message
     redirect('/login');
   }
-  
+
   return (
     <div className="min-h-screen">
-      <DashboardHeader userImage={session.user.image} userEmail={session.user.email} userName={session.user.name} tasksDue={3} />
+      <DashboardHeader
+        userImage={session.user.image}
+        userEmail={session.user.email}
+        userName={session.user.name}
+      />
 
       <div className="mt-6 space-y-6">
-        <DashboardGreeting userName="Hemanth" tasksDue={3} />
-        
+        <DashboardGreeting userName="Hemanth" tasksDue={0} />
+
         <QuickStatsCards />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
