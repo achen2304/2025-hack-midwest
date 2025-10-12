@@ -8,6 +8,7 @@ from typing import List
 
 from app.util.db import get_database
 from app.util.auth import verify_backend_token
+from app.services.canvas_service import CanvasService
 from app.models.schemas import (
     CanvasTokenUpdate,
     CanvasTokenResponse,
@@ -24,6 +25,45 @@ from app.models.schemas import (
 import httpx
 
 router = APIRouter(prefix="/canvas", tags=["Canvas"])
+
+@router.post("/test-connection")
+async def test_canvas_connection(
+    token_data: CanvasTokenUpdate,
+    user=Depends(verify_backend_token)
+):
+    """Test Canvas API connection with provided token"""
+    try:
+        base_url = token_data.canvas_base_url or "https://canvas.instructure.com"
+        
+        # Initialize Canvas service
+        canvas_service = CanvasService(base_url, token_data.canvas_token)
+        
+        # Test connection
+        result = canvas_service.test_connection()
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "message": "Canvas connection successful",
+                "user": result["user"],
+                "canvas_url": result["canvas_url"]
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Canvas connection failed: {result['error']}"
+            )
+            
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to test Canvas connection: {str(e)}"
+        )
 
 @router.post("/token", response_model=CanvasTokenResponse)
 async def save_canvas_token(
@@ -357,7 +397,7 @@ async def get_canvas_courses(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Get user's Canvas courses"""
+    """Get user's Canvas courses using canvasapi library"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
@@ -365,56 +405,41 @@ async def get_canvas_courses(
         config = await get_user_canvas_config(user_id, email, db)
 
         # Get user's tracked courses
-        user_doc = None
-        try:
-            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        except:
-            pass
+        user_doc = config.get("user_doc", {})
+        tracked_course_ids = user_doc.get("tracked_course_ids", [])
 
-        if not user_doc:
-            user_doc = await db.users.find_one({"email": email})
+        # Initialize Canvas service
+        canvas_service = CanvasService(config["base_url"], config["token"])
+        
+        # Fetch courses from Canvas using canvasapi
+        courses = canvas_service.get_courses(enrollment_state="active", per_page=100)
+        course_responses = []
 
-        tracked_course_ids = user_doc.get("tracked_course_ids", []) if user_doc else []
+        for course in courses:
+            course_id = str(course["id"])
+            is_tracked = course_id in tracked_course_ids
 
-        # Fetch courses from Canvas
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{config['base_url']}/api/v1/courses",
-                headers={"Authorization": f"Bearer {config['token']}"},
-                params={"enrollment_state": "active", "per_page": 100}
-            )
+            # If user has tracked courses, only return those
+            if tracked_course_ids and not is_tracked:
+                continue
 
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Failed to fetch courses from Canvas"
-                )
+            course_responses.append(CanvasCourseResponse(
+                id=course_id,
+                name=course.get("name", ""),
+                course_code=course.get("course_code", ""),
+                enrollment_term_id=course.get("enrollment_term_id"),
+                start_at=course.get("start_at"),
+                end_at=course.get("end_at"),
+                is_tracked=is_tracked
+            ))
 
-            courses = response.json()
-            course_responses = []
+        return course_responses
 
-            for course in courses:
-                course_id = str(course["id"])
-                is_tracked = course_id in tracked_course_ids
-
-                # If user has tracked courses, only return those
-                if tracked_course_ids and not is_tracked:
-                    continue
-
-                course_responses.append(CanvasCourseResponse(
-                    id=course_id,
-                    name=course.get("name", ""),
-                    course_code=course.get("course_code", ""),
-                    enrollment_term_id=course.get("enrollment_term_id"),
-                    start_at=course.get("start_at"),
-                    end_at=course.get("end_at"),
-                    is_tracked=is_tracked
-                ))
-
-            return course_responses
-
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -474,7 +499,7 @@ async def get_canvas_assignments(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Get assignments from tracked Canvas courses (direct from Canvas API)"""
+    """Get assignments from tracked Canvas courses using canvasapi library"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
@@ -482,86 +507,71 @@ async def get_canvas_assignments(
         config = await get_user_canvas_config(user_id, email, db)
 
         # Get user's tracked courses
-        user_doc = None
-        try:
-            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        except:
-            pass
-
-        if not user_doc:
-            user_doc = await db.users.find_one({"email": email})
-
-        tracked_course_ids = user_doc.get("tracked_course_ids", []) if user_doc else []
+        user_doc = config.get("user_doc", {})
+        tracked_course_ids = user_doc.get("tracked_course_ids", [])
 
         # If no tracked courses, return empty list
         if not tracked_course_ids:
             return []
 
-        # Fetch courses from Canvas
-        async with httpx.AsyncClient() as client:
-            courses_response = await client.get(
-                f"{config['base_url']}/api/v1/courses",
-                headers={"Authorization": f"Bearer {config['token']}"},
-                params={"enrollment_state": "active", "per_page": 100}
-            )
+        # Initialize Canvas service
+        canvas_service = CanvasService(config["base_url"], config["token"])
+        
+        # Fetch courses from Canvas using canvasapi
+        courses = canvas_service.get_courses(enrollment_state="active", per_page=100)
+        all_assignments = []
 
-            if courses_response.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Failed to fetch courses from Canvas"
-                )
+        # Get assignments for each tracked course only
+        for course in courses:
+            course_id = str(course["id"])
 
-            courses = courses_response.json()
-            all_assignments = []
+            # Skip if not tracked
+            if course_id not in tracked_course_ids:
+                continue
 
-            # Get assignments for each tracked course only
-            for course in courses:
-                course_id = str(course["id"])
+            try:
+                assignments = canvas_service.get_course_assignments(int(course_id), per_page=100)
+                
+                for assignment in assignments:
+                    # Get submission status from Canvas
+                    submission = assignment.get("submission", {})
+                    workflow_state = submission.get("workflow_state", "unsubmitted")
 
-                # Skip if not tracked
-                if course_id not in tracked_course_ids:
-                    continue
+                    # Map Canvas workflow_state to our status
+                    # Note: Canvas can only set not_started or completed
+                    # "in_progress" can ONLY be set manually by the user
+                    if workflow_state in ["submitted", "pending_review", "graded", "complete"]:
+                        status = "completed"  # Student has submitted
+                    else:
+                        status = "not_started"
 
-                assignments_response = await client.get(
-                    f"{config['base_url']}/api/v1/courses/{course_id}/assignments",
-                    headers={"Authorization": f"Bearer {config['token']}"},
-                    params={"per_page": 100, "include[]": "submission"}  # Include submission status
-                )
+                    all_assignments.append(CanvasAssignmentResponse(
+                        id=str(assignment["id"]),
+                        name=assignment.get("name", "Unnamed Assignment"),
+                        description=assignment.get("description"),
+                        due_at=assignment.get("due_at"),
+                        course_id=course_id,
+                        points_possible=assignment.get("points_possible"),
+                        submission_types=assignment.get("submission_types", []),
+                        status=status,
+                        canvas_workflow_state=workflow_state
+                    ))
+                    
+            except ValueError as e:
+                # Course not accessible, skip it
+                print(f"Warning: Could not access course {course_id}: {str(e)}")
+                continue
 
-                if assignments_response.status_code == 200:
-                    assignments = assignments_response.json()
-                    for assignment in assignments:
-                        # Get submission status from Canvas
-                        submission = assignment.get("submission", {})
-                        workflow_state = submission.get("workflow_state", "unsubmitted")
+        # Sort assignments by due_date (None values at the end)
+        all_assignments.sort(key=lambda x: (x.due_at is None, x.due_at))
 
-                        # Map Canvas workflow_state to our status
-                        # Note: Canvas can only set not_started or completed
-                        # "in_progress" can ONLY be set manually by the user
-                        if workflow_state in ["submitted", "pending_review", "graded", "complete"]:
-                            status = "completed"  # Student has submitted
-                        else:
-                            status = "not_started"
+        return all_assignments
 
-                        all_assignments.append(CanvasAssignmentResponse(
-                            id=str(assignment["id"]),
-                            name=assignment.get("name", "Unnamed Assignment"),
-                            description=assignment.get("description"),
-                            due_at=assignment.get("due_at"),
-                            course_id=course_id,
-                            points_possible=assignment.get("points_possible"),
-                            submission_types=assignment.get("submission_types", []),
-                            status=status,
-                            canvas_workflow_state=workflow_state
-                        ))
-
-            # Sort assignments by due_date (None values at the end)
-            all_assignments.sort(key=lambda x: (x.due_at is None, x.due_at))
-
-            return all_assignments
-
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

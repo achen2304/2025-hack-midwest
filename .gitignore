@@ -139,3 +139,153 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# =============================================================================
+# SECURITY & PRIVATE KEYS - PROTECT SENSITIVE INFORMATION
+# =============================================================================
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# API Keys and Tokens
+**/api_keys.txt
+**/secrets.json
+**/credentials.json
+**/auth.json
+**/tokens.json
+**/*_key.pem
+**/*_key.txt
+**/private_key*
+**/public_key*
+**/certificate*
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+
+# Database credentials
+**/database.yml
+**/db_config.json
+**/mongodb_uri.txt
+**/connection_strings.txt
+
+# Canvas API tokens and configs
+**/canvas_token.txt
+**/canvas_config.json
+**/canvas_credentials.json
+
+# JWT secrets and auth configs
+**/jwt_secret.txt
+**/auth_config.json
+**/nextauth_secret.txt
+**/session_secret.txt
+
+# Cloud provider credentials
+**/aws_credentials
+**/aws_config
+**/.aws/
+**/azure_credentials.json
+**/gcp_credentials.json
+**/google_credentials.json
+**/firebase_config.json
+**/firebase_service_account.json
+
+# SSL/TLS certificates
+**/*.crt
+**/*.cer
+**/*.der
+**/*.p7b
+**/*.p7r
+**/*.spc
+**/*.pem
+**/*.key
+**/*.csr
+**/*.srl
+**/ssl/
+**/certs/
+
+# OAuth and social auth secrets
+**/oauth_secrets.json
+**/social_auth.json
+**/github_token.txt
+**/google_client_secret.json
+**/facebook_app_secret.txt
+**/twitter_api_key.txt
+
+# Email and notification configs
+**/smtp_config.json
+**/email_credentials.json
+**/sendgrid_api_key.txt
+**/mailgun_api_key.txt
+**/twilio_credentials.json
+
+# Payment processing keys
+**/stripe_secret_key.txt
+**/paypal_credentials.json
+**/payment_config.json
+
+# Monitoring and analytics
+**/sentry_dsn.txt
+**/analytics_config.json
+**/monitoring_credentials.json
+
+# Backup and database dumps
+**/*.dump
+**/*.sql
+**/*.backup
+**/backups/
+**/database_dumps/
+
+# Local development overrides
+**/local_config.json
+**/dev_secrets.json
+**/test_credentials.json
+**/local_env.json
+
+# IDE and editor specific files with potential secrets
+**/.vscode/settings.json
+**/.idea/workspace.xml
+**/.idea/encodings.xml
+**/.idea/*.iml
+**/.idea/vcs.xml
+**/.idea/jsLibraryMappings.xml
+
+# OS generated files that might contain sensitive info
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files that might contain sensitive data
+**/tmp/
+**/temp/
+**/*.tmp
+**/*.temp
+**/cache/
+**/.cache/
+
+# Log files that might contain sensitive information
+**/logs/
+**/*.log
+**/error.log
+**/access.log
+**/debug.log
+**/audit.log
+
+# Configuration files that might contain secrets
+**/config/secrets.yml
+**/config/database.yml
+**/config/credentials.yml
+**/config/production.yml
+**/config/staging.yml
+**/config/development.yml
