@@ -23,16 +23,36 @@ class VectorAgent:
         course_id: Optional[str] = None,
         limit: int = 5
     ) -> List[Dict[str, Any]]:
-        """Search for relevant documents using vector similarity"""
+        """
+        Search for relevant documents using vector similarity.
+
+        SECURITY: This method ALWAYS filters by user_id to ensure users can only
+        access their own documents. Never remove this filter.
+
+        Args:
+            query: Search query text
+            user_id: User's MongoDB ID (REQUIRED - enforces user isolation)
+            course_id: Optional course filter
+            limit: Maximum number of results
+
+        Returns:
+            List of relevant document chunks with metadata
+        """
         try:
             # Generate embedding for query
             query_embedding = await self.embedding_service.generate_embedding(query)
+
+            # Build user isolation filter (CRITICAL - prevents data leakage)
+            match_filter = {"user_id": user_id}  # ALWAYS filter by user_id
+
+            if course_id:
+                match_filter["course_id"] = course_id
 
             # Build MongoDB aggregation pipeline for vector search
             pipeline = [
                 {
                     "$vectorSearch": {
-                        "index": "vector_search_index",
+                        "index": "vector_search_index",  # Must be created in Atlas
                         "path": "embedding",
                         "queryVector": query_embedding,
                         "numCandidates": 100,
@@ -40,23 +60,34 @@ class VectorAgent:
                     }
                 },
                 {
-                    "$match": {"user_id": user_id}
+                    "$match": match_filter  # User isolation - DO NOT REMOVE
+                },
+                {
+                    "$project": {
+                        "_id": 1,
+                        "document_id": 1,
+                        "text": 1,
+                        "course_id": 1,
+                        "filename": 1,
+                        "chunk_index": 1,
+                        "page_number": 1,
+                        "score": {"$meta": "vectorSearchScore"}
+                    }
                 }
             ]
 
-            if course_id:
-                pipeline[1]["$match"]["course_id"] = course_id
-
-            # Execute search
+            # Execute search on document_chunks collection
             results = []
-            async for doc in self.db.documents.aggregate(pipeline):
+            async for doc in self.db.document_chunks.aggregate(pipeline):
                 results.append({
                     "id": str(doc["_id"]),
-                    "content": doc.get("rawText", ""),
+                    "document_id": doc.get("document_id"),
+                    "content": doc.get("text", ""),
                     "course_id": doc.get("course_id"),
-                    "document_type": doc.get("documentType"),
-                    "file_name": doc.get("fileName"),
-                    "relevance_score": doc.get("score", 0)
+                    "filename": doc.get("filename"),
+                    "chunk_index": doc.get("chunk_index", 0),
+                    "page_number": doc.get("page_number"),
+                    "relevance_score": doc.get("score", 0.0)
                 })
 
             return results
@@ -71,14 +102,29 @@ class VectorAgent:
         course_id: str,
         topic: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Get comprehensive context about a course"""
+        """
+        Get comprehensive context about a course.
+
+        SECURITY: This method ALWAYS filters by user_id to ensure users can only
+        access their own course materials.
+
+        Args:
+            user_id: User's MongoDB ID (REQUIRED - enforces user isolation)
+            course_id: Course to get context for
+            topic: Optional specific topic to search for
+
+        Returns:
+            Dictionary with course context and documents
+        """
         try:
             if topic:
+                # Use vector search for specific topic
                 docs = await self.search_documents(topic, user_id, course_id, limit=10)
             else:
-                # Get all recent documents for course
-                cursor = self.db.documents.find({
-                    "user_id": user_id,
+                # Get all recent document chunks for course
+                # CRITICAL: ALWAYS filter by user_id
+                cursor = self.db.document_chunks.find({
+                    "user_id": user_id,  # User isolation
                     "course_id": course_id
                 }).sort("_id", -1).limit(10)
 
@@ -86,9 +132,11 @@ class VectorAgent:
                 async for doc in cursor:
                     docs.append({
                         "id": str(doc["_id"]),
-                        "content": doc.get("rawText", ""),
-                        "document_type": doc.get("documentType"),
-                        "file_name": doc.get("fileName")
+                        "document_id": doc.get("document_id"),
+                        "content": doc.get("text", ""),
+                        "filename": doc.get("filename"),
+                        "chunk_index": doc.get("chunk_index", 0),
+                        "page_number": doc.get("page_number")
                     })
 
             return {

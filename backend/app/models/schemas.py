@@ -276,3 +276,111 @@ class ScheduleGenerationResponse(BaseModel):
     message: str
     study_blocks_created: int
     break_blocks_created: int
+
+# Document Upload and Storage Models
+class DocumentType(str, Enum):
+    LECTURE_NOTES = "lecture_notes"
+    SLIDES = "slides"
+    READING = "reading"
+    TEXTBOOK = "textbook"
+    OTHER = "other"
+
+class DocumentUploadResponse(BaseModel):
+    id: str
+    user_id: str
+    course_id: str
+    filename: str
+    document_type: DocumentType
+    file_size: int
+    total_chunks: int
+    pages: int
+    uploaded_at: datetime
+    message: str
+
+class DocumentListResponse(BaseModel):
+    id: str
+    course_id: str
+    filename: str
+    document_type: DocumentType
+    file_size: int
+    total_chunks: int
+    pages: int
+    uploaded_at: datetime
+
+class DocumentSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query")
+    course_id: Optional[str] = Field(None, description="Filter by course")
+    limit: int = Field(5, ge=1, le=20, description="Number of results")
+
+class DocumentSearchResult(BaseModel):
+    chunk_id: str
+    document_id: str
+    filename: str
+    course_id: str
+    text: str
+    relevance_score: float
+    chunk_index: int
+    page_number: Optional[int] = None
+
+# Study Assistant Chat Models
+class ChatMessageRole(str, Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+class ChatMessage(BaseModel):
+    role: ChatMessageRole = Field(..., description="Message role")
+    content: str = Field(..., description="Message content")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When message was sent")
+
+class ChatSessionCreate(BaseModel):
+    course_id: Optional[str] = Field(None, description="Optional course context")
+    initial_message: str = Field(..., description="First question/message")
+
+class ChatSessionResponse(BaseModel):
+    id: str
+    user_id: str
+    course_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    message_count: int
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(..., description="User's question or message")
+    course_id: Optional[str] = Field(None, description="Optional course filter for document search")
+
+class DocumentSource(BaseModel):
+    document_id: str
+    filename: str
+    page_number: Optional[int] = None
+    chunk_index: int
+    relevance_score: float
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    session_id: str
+    role: ChatMessageRole
+    content: str
+    sources: List[DocumentSource] = Field(default_factory=list, description="Documents referenced in answer")
+    needs_clarification: bool = Field(default=False, description="Whether assistant needs clarification")
+    follow_up_suggestions: List[str] = Field(default_factory=list, description="Suggested follow-up questions")
+    documents_found: int = Field(default=0, description="Number of relevant documents found")
+    timestamp: datetime
+
+class ChatHistoryResponse(BaseModel):
+    session_id: str
+    course_id: Optional[str] = None
+    messages: List[ChatMessageResponse]
+    total_messages: int
+    created_at: datetime
+    updated_at: datetime
+
+class DocumentSummaryRequest(BaseModel):
+    document_id: str = Field(..., description="Document to summarize")
+
+class DocumentSummaryResponse(BaseModel):
+    document_id: str
+    filename: str
+    summary: str
+    key_topics: List[str] = Field(default_factory=list)
+    chunks_analyzed: int
