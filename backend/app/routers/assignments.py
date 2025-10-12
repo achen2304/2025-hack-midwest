@@ -14,7 +14,7 @@ Status Rules:
 - "in_progress" - ONLY set manually by user via PUT /assignments/{id}/status
   → Sync will NEVER overwrite in_progress status
 """
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from datetime import datetime, timedelta
 from bson import ObjectId
 from typing import List, Optional
@@ -58,123 +58,106 @@ class AssignmentStatusUpdate(BaseModel):
 
 @router.get("", response_model=List[CanvasAssignmentResponse])
 async def get_assignments(
-    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status"),
+    request: Request,
+    status_filter: Optional[str] = Query(None, alias="status"),
     course_id: Optional[str] = Query(None, description="Filter by course ID"),
-    due_before: Optional[datetime] = Query(None, description="Filter assignments due before this date"),
-    due_after: Optional[datetime] = Query(None, description="Filter assignments due after this date"),
-    weeks: Optional[int] = Query(6, ge=1, le=52, description="Number of weeks to fetch (default: 6)"),
+    due_before: Optional[datetime] = Query(None),
+    due_after: Optional[datetime] = Query(None),
+    weeks: Optional[int] = Query(6, ge=1, le=52),
     user=Depends(verify_backend_token),
-    db=Depends(get_database)
+    db=Depends(get_database),
 ):
-    """
-    Get assignments from MongoDB database (synced from Canvas)
-
-    By default, fetches assignments for the next 6 weeks.
-    Use 'weeks' parameter to adjust the time window (1-52 weeks).
-    
-    Query Parameters:
-    - status: Filter by status (not_started, in_progress, completed)
-    - course_id: Filter by specific course/class ID (returns ALL assignments for that course, ignoring date limits)
-    - due_before: Filter assignments due before this date
-    - due_after: Filter assignments due after this date
-    - weeks: Number of weeks to fetch (1-52, default: 6) - ignored when course_id is provided
-
-    Note: When course_id is provided, the default 6-week date filter is disabled
-    to return all assignments for that specific course.
-
-    This pulls from the local database, NOT directly from Canvas.
-    To sync latest from Canvas, use POST /canvas/sync first.
-    """
     try:
-        user_id = user.get("sub")
-        email = user.get("email")
-
-        # Get user's MongoDB ID
+        # Resolve user
         user_doc = None
         try:
-            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        except:
+            user_doc = await db.users.find_one({"_id": ObjectId(user.get("sub"))})
+        except Exception:
             pass
-
         if not user_doc:
-            user_doc = await db.users.find_one({"email": email})
-
+            user_doc = await db.users.find_one({"email": user.get("email")})
         if not user_doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=404, detail="User not found")
 
         db_user_id = str(user_doc["_id"])
 
-        # Build query filters
-        query = {"user_id": db_user_id}
+        # ----- Build one $and query -----
+        and_terms: list[dict] = [{"user_id": db_user_id}]
 
         if status_filter:
-            query["status"] = status_filter
+            and_terms.append({"status": status_filter})
 
         if course_id:
-            query["course_id"] = course_id
-        print(f"Course ID: {course_id}")
-        print(f"Query: {query}")
+            and_terms.append({"course_id": str(course_id).strip()})
 
-        # Date filtering: default to next 4-6 weeks if not specified
-        # If course_id is provided, don't apply default date filtering to allow all assignments for that course
         if due_before or due_after:
-            date_query = {}
+            date_q: dict = {}
             if due_before:
-                date_query["$lte"] = due_before
+                date_q["$lte"] = due_before
             if due_after:
-                date_query["$gte"] = due_after
-            query["due_date"] = date_query
-        elif not course_id:  # Only apply default date filtering if no specific course_id is requested
-            # Default: fetch assignments for the next N weeks
+                date_q["$gte"] = due_after
+            and_terms.append({"due_date": date_q})
+        elif not course_id:
+            # default window if no course filter
             now = datetime.utcnow()
-            future_date = now + timedelta(weeks=weeks)
-            query["due_date"] = {
-                "$gte": now,
-                "$lte": future_date
-            }
+            future = now + timedelta(weeks=weeks)
+            and_terms.append({"due_date": {"$gte": now, "$lte": future}})
 
-        # Fetch assignments from database, sorted by due_date
-        cursor = db.assignments.find(query).sort("due_date", 1)
-        assignments_docs = await cursor.to_list(length=None)
+        mongo_query = {"$and": and_terms} if len(and_terms) > 1 else and_terms[0]
 
-        assignments = []
-        for doc in assignments_docs:
-            # Additional safety filter: if course_id was provided, only include assignments that match
-            if course_id and doc.get("course_id") != course_id:
-                continue
-                
-            # Get course information
-            course_info = await get_course_info(db, doc.get("course_id", ""), db_user_id)
-            
+        # Helpful debug
+        print("assignments query:", mongo_query, "params:", dict(request.query_params))
+
+        # ----- Query & sort (index-friendly) -----
+        cursor = db.assignments.find(mongo_query, projection={
+            "_id": 1, "canvas_id": 1, "title": 1, "description": 1,
+            "due_date": 1, "course_id": 1, "points_possible": 1,
+            "submission_types": 1, "status": 1, "canvas_workflow_state": 1
+        }).sort("due_date", 1)
+        docs = await cursor.to_list(length=None)
+
+        # Gather course_ids present
+        course_ids = sorted({str(d.get("course_id", "")) for d in docs if d.get("course_id")})
+
+        # Batch load course info once
+        course_map = {}
+        if course_ids:
+            # Assuming you store courses in db.courses with fields: user_id, course_id, name, code
+            async for c in db.courses.find(
+                {"user_id": db_user_id, "course_id": {"$in": course_ids}},
+                projection={"course_id": 1, "name": 1, "course_code": 1, "_id": 0}
+            ):
+                course_map[str(c["course_id"])] = {
+                    "course_name": c.get("name") or "",
+                    "course_code": c.get("course_code") or ""
+                }
+
+        # Build response using the map
+        assignments: List[CanvasAssignmentResponse] = []
+        for doc in docs:
+            cid = str(doc.get("course_id", ""))
+            info = course_map.get(cid, {"course_name": "", "course_code": ""})
             assignments.append(CanvasAssignmentResponse(
                 id=doc.get("canvas_id", str(doc["_id"])),
                 name=doc.get("title", "Unnamed Assignment"),
                 description=doc.get("description"),
                 due_at=doc.get("due_date"),
-                course_id=doc.get("course_id", ""),
-                course_name=course_info["course_name"],
-                course_code=course_info["course_code"],
+                course_id=cid,
+                course_name=info["course_name"],
+                course_code=info["course_code"],
                 points_possible=doc.get("points_possible"),
                 submission_types=doc.get("submission_types", []),
                 status=doc.get("status", "not_started"),
                 canvas_workflow_state=doc.get("canvas_workflow_state")
             ))
 
-        if course_id:
-            assignments = [assignment for assignment in assignments if assignment.course_id == course_id]
-
         return assignments
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch assignments: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch assignments: {e}")
+
 
 
 @router.get("/{assignment_id}", response_model=CanvasAssignmentResponse)
