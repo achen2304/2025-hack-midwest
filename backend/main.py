@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
+from app.util.db import get_database
 
 # Load environment variables
 load_dotenv()
@@ -18,7 +19,7 @@ from app.util.db import db_manager
 from app.util.auth import verify_backend_token
 
 # Import routers
-from app.routers import user, canvas, assignments, calendar, documents
+from app.routers import user, canvas, assignments, calendar, documents, assignments_vector_simple
 # Temporarily commented out due to strands dependency:
 # from app.routers import health, schedule, chat
 
@@ -88,8 +89,50 @@ async def health_check():
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
 
+
+import asyncio
+from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorClient
+from pymongo.operations import SearchIndexModel
+
+INDEX_NAME = "assignments_vs"
+NUM_DIMS = 384  # MiniLM-L6-v2
 @app.get("/protected")
-def protected_route(user=Depends(verify_backend_token)):
+async def protected_route(user=Depends(verify_backend_token), db=Depends(get_database)):
+
+    MONGODB_URI = os.getenv("MONGODB_URI")
+    client = AsyncIOMotorClient(MONGODB_URI)
+    db = client["campusmind"]
+    collection = db["assignments"]
+    model = SearchIndexModel(
+        definition={
+            "fields": [
+                {"type": "vector", "path": "embedding", "numDimensions": NUM_DIMS, "similarity": "cosine"},
+                {"type": "filter", "path": "user_id"},
+                {"type": "filter", "path": "course_id"},
+                {"type": "filter", "path": "status"},
+                {"type": "filter", "path": "due_date"},
+            ]
+        },
+        name=INDEX_NAME,
+        type="vectorSearch",
+    )
+
+    # CREATE (await!)
+    name = await collection.create_search_index(model=model)
+    print(f"New vector index named '{name}' is building.")
+
+    # POLL (await async cursor)
+    print("Polling to check if the index is ready (up to ~1–2 minutes).")
+    while True:
+        cursor = collection.list_search_indexes(name)     # async cursor
+        indexes = await cursor.to_list(length=None)       # ✅ await
+        if indexes and indexes[0].get("queryable") is True:
+            break
+        await asyncio.sleep(5)
+
+    print(f"'{name}' is ready for querying.")
+
+    
     return {
         "ok": True,
         "sub": user.get("sub"),
@@ -103,6 +146,7 @@ app.include_router(canvas.router)
 app.include_router(assignments.router)
 app.include_router(calendar.router)
 app.include_router(documents.router)
+app.include_router(assignments_vector_simple.router)
 # Temporarily commented out due to strands dependency:
 # app.include_router(health.router)
 # app.include_router(schedule.router)

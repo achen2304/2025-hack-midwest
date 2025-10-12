@@ -73,7 +73,7 @@ const QuickStatsCards = () => {
 
     fetchActiveCourse();
   }, [session]);
-activeCourse
+
   // Fetch study sessions for the week
   useEffect(() => {
     const fetchStudySessions = async () => {

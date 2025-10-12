@@ -4,7 +4,7 @@ Canvas LMS integration routes
 from fastapi import APIRouter, HTTPException, Depends, status
 from datetime import datetime, timedelta
 from bson import ObjectId
-from typing import List
+from typing import List, Optional
 
 from app.util.db import get_database
 from app.util.auth import verify_backend_token
@@ -23,6 +23,11 @@ from app.models.schemas import (
     EventType
 )
 import httpx
+
+from app.util.db import get_database
+from app.util.auth import verify_backend_token
+from app.models.schemas import CanvasSyncResponse
+from app.services.embedder import embed_text
 
 router = APIRouter(prefix="/canvas", tags=["Canvas"])
 
@@ -587,36 +592,41 @@ async def get_canvas_assignments(
             detail=f"Failed to fetch Canvas assignments: {str(e)}"
         )
 
+def _join_title_desc(name: Optional[str], desc: Optional[str]) -> str:
+    name = (name or "").strip()
+    desc = (desc or "").strip()
+    joined = f"{name}\n{desc}".strip()
+    return joined
+
+def _map_canvas_status(workflow_state: str) -> str:
+    ws = (workflow_state or "").lower()
+    return "completed" if ws in ("submitted", "pending_review", "graded", "complete") else "not_started"
+
 @router.post("/sync", response_model=CanvasSyncResponse)
 async def sync_canvas_data(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Sync Canvas courses and assignments to database (tracked courses only)"""
+    """Sync Canvas courses and assignments to database (tracked courses only) + write vector embeddings"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
 
+        # ---- Resolve Canvas config (your existing helper) ----
         config = await get_user_canvas_config(user_id, email, db)
 
-        # Get user's MongoDB ID and tracked courses
+        # ---- Resolve user + tracked courses ----
         user_doc = None
         try:
             user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        except:
+        except Exception:
             pass
-
         if not user_doc:
             user_doc = await db.users.find_one({"email": email})
 
-        if user_doc:
-            db_user_id = str(user_doc["_id"])
-        else:
-            db_user_id = user_id  # Fallback to JWT sub
+        db_user_id = str(user_doc["_id"]) if user_doc else str(user_id)
+        tracked_course_ids: List[str] = user_doc.get("tracked_course_ids", []) if user_doc else []
 
-        tracked_course_ids = user_doc.get("tracked_course_ids", []) if user_doc else []
-
-        # If no tracked courses, return empty sync result
         if not tracked_course_ids:
             return CanvasSyncResponse(
                 success=True,
@@ -625,117 +635,131 @@ async def sync_canvas_data(
                 assignments_synced=0
             )
 
+        courses_synced = 0
+        assignments_synced = 0
+        assignments_embedded = 0  # NEW: count embeddings we computed
+
         async with httpx.AsyncClient() as client:
-            # Fetch courses
+            # ---- Fetch active courses ----
             courses_response = await client.get(
                 f"{config['base_url']}/api/v1/courses",
                 headers={"Authorization": f"Bearer {config['token']}"},
                 params={"enrollment_state": "active", "per_page": 100}
             )
-
             if courses_response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail="Failed to fetch courses from Canvas"
                 )
-
             courses = courses_response.json()
-            courses_synced = 0
-            assignments_synced = 0
 
-            # Sync only tracked courses
+            # ---- Sync only tracked courses ----
             for course in courses:
                 course_id = str(course["id"])
-
-                # Skip if not tracked
                 if course_id not in tracked_course_ids:
                     continue
+
+                # upsert course
                 await db.canvas_courses.update_one(
-                    {"canvas_id": str(course["id"]), "user_id": db_user_id},
-                    {
-                        "$set": {
-                            "canvas_id": str(course["id"]),
-                            "user_id": db_user_id,
-                            "name": course.get("name", ""),
-                            "course_code": course.get("course_code", ""),
-                            "enrollment_term_id": course.get("enrollment_term_id"),
-                            "start_at": course.get("start_at"),
-                            "end_at": course.get("end_at"),
-                            "synced_at": datetime.utcnow()
-                        }
-                    },
+                    {"canvas_id": course_id, "user_id": db_user_id},
+                    {"$set": {
+                        "canvas_id": course_id,
+                        "user_id": db_user_id,
+                        "name": course.get("name", ""),
+                        "course_code": course.get("course_code", ""),
+                        "enrollment_term_id": course.get("enrollment_term_id"),
+                        "start_at": course.get("start_at"),
+                        "end_at": course.get("end_at"),
+                        "synced_at": datetime.utcnow()
+                    }},
                     upsert=True
                 )
                 courses_synced += 1
 
-                # Fetch and sync assignments for this course
+                # ---- Fetch assignments for this course ----
                 assignments_response = await client.get(
-                    f"{config['base_url']}/api/v1/courses/{course['id']}/assignments",
+                    f"{config['base_url']}/api/v1/courses/{course_id}/assignments",
                     headers={"Authorization": f"Bearer {config['token']}"},
                     params={"per_page": 100, "include[]": "submission"}
                 )
+                if assignments_response.status_code != 200:
+                    continue
 
-                if assignments_response.status_code == 200:
-                    assignments = assignments_response.json()
-                    for assignment in assignments:
-                        # Get submission status from Canvas
-                        submission = assignment.get("submission", {})
-                        workflow_state = submission.get("workflow_state", "unsubmitted")
+                assignments = assignments_response.json()
+                for assignment in assignments:
+                    canvas_assignment_id = str(assignment["id"])
+                    submission = assignment.get("submission", {}) or {}
+                    workflow_state = submission.get("workflow_state", "unsubmitted")
+                    canvas_status = _map_canvas_status(workflow_state)
 
-                        # Map Canvas workflow_state to our status
-                        # Note: Canvas can only set not_started or completed
-                        # "in_progress" can ONLY be set manually by the user
-                        if workflow_state in ["submitted", "pending_review", "graded", "complete"]:
-                            canvas_status = "completed"  # Student has submitted
-                        else:
-                            canvas_status = "not_started"
+                    # Check existing doc
+                    existing = await db.assignments.find_one({
+                        "canvas_id": canvas_assignment_id,
+                        "user_id": db_user_id
+                    })
 
-                        # Check if assignment already exists
-                        existing = await db.assignments.find_one({
-                            "canvas_id": str(assignment["id"]),
-                            "user_id": db_user_id
-                        })
+                    # Preserve manual in_progress
+                    if existing and existing.get("status") == "in_progress":
+                        final_status = "in_progress"
+                    else:
+                        final_status = canvas_status
 
-                        # IMPORTANT: Preserve "in_progress" status if user manually set it
-                        # Sync should NEVER overwrite in_progress status
-                        if existing and existing.get("status") == "in_progress":
-                            # Don't overwrite - user is working on it
-                            final_status = "in_progress"
-                        else:
-                            # Use Canvas status (not_started or completed)
-                            final_status = canvas_status
+                    title = assignment.get("name", "") or ""
+                    description = assignment.get("description")  # can be HTML, fine for embeddings
+                    due_at = assignment.get("due_at")  # ISO string; you can parse to datetime if needed
+                    text_for_embedding = _join_title_desc(title, description)
 
-                        await db.assignments.update_one(
-                            {"canvas_id": str(assignment["id"]), "user_id": db_user_id},
-                            {
-                                "$set": {
-                                    "canvas_id": str(assignment["id"]),
-                                    "user_id": db_user_id,
-                                    "title": assignment.get("name", ""),
-                                    "description": assignment.get("description"),
-                                    "course": course.get("course_code", ""),
-                                    "course_id": str(course["id"]),
-                                    "due_date": assignment.get("due_at"),
-                                    "points_possible": assignment.get("points_possible"),
-                                    "submission_types": assignment.get("submission_types", []),
-                                    "status": final_status,
-                                    "canvas_workflow_state": workflow_state,
-                                    "synced_at": datetime.utcnow()
-                                },
-                                "$setOnInsert": {
-                                    "created_at": datetime.utcnow()
-                                }
-                            },
-                            upsert=True
-                        )
-                        assignments_synced += 1
+                    # Decide whether to (re)embed
+                    need_embed = True
+                    if existing:
+                        prev_title = existing.get("title", "")
+                        prev_desc = existing.get("description", "")
+                        has_embedding = isinstance(existing.get("embedding"), list) and len(existing.get("embedding")) > 0
+                        # if content unchanged and we already have an embedding, skip re-embedding
+                        if prev_title == title and (prev_desc or "") == (description or "") and has_embedding:
+                            need_embed = False
 
-            return CanvasSyncResponse(
-                success=True,
-                message=f"Successfully synced {courses_synced} courses and {assignments_synced} assignments",
-                courses_synced=courses_synced,
-                assignments_synced=assignments_synced
-            )
+                    embedding_vec = []
+                    if need_embed and text_for_embedding:
+                        embedding_vec = embed_text(text_for_embedding)
+                        if embedding_vec:
+                            assignments_embedded += 1
+                    elif existing and existing.get("embedding"):
+                        embedding_vec = existing["embedding"]  # keep prior
+
+                    # Upsert assignment with embedding
+                    update_fields = {
+                        "canvas_id": canvas_assignment_id,
+                        "user_id": db_user_id,
+                        "title": title,
+                        "description": description,
+                        "course": course.get("course_code", ""),
+                        "course_id": course_id,
+                        "due_date": due_at,  # (optionally convert to datetime earlier)
+                        "points_possible": assignment.get("points_possible"),
+                        "submission_types": assignment.get("submission_types", []),
+                        "status": final_status,
+                        "canvas_workflow_state": workflow_state,
+                        "synced_at": datetime.utcnow(),
+                        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+                    }
+                    if embedding_vec:
+                        update_fields["embedding"] = embedding_vec
+
+                    await db.assignments.update_one(
+                        {"canvas_id": canvas_assignment_id, "user_id": db_user_id},
+                        {"$set": update_fields, "$setOnInsert": {"created_at": datetime.utcnow()}},
+                        upsert=True
+                    )
+                    assignments_synced += 1
+
+        return CanvasSyncResponse(
+            success=True,
+            message=f"Successfully synced {courses_synced} courses and {assignments_synced} assignments "
+                    f"({assignments_embedded} embedded)",
+            courses_synced=courses_synced,
+            assignments_synced=assignments_synced
+        )
 
     except HTTPException:
         raise
