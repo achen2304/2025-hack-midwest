@@ -121,7 +121,7 @@ class CanvasService:
                     "id": assignment.id,
                     "name": assignment.name,
                     "description": assignment.description,
-                    "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
+                    "due_at": assignment.due_at if assignment.due_at else None,
                     "points_possible": assignment.points_possible,
                     "submission_types": assignment.submission_types,
                     "workflow_state": assignment.workflow_state,
@@ -131,9 +131,9 @@ class CanvasService:
                     "submission": {
                         "id": submission.id if submission else None,
                         "workflow_state": submission.workflow_state if submission else "unsubmitted",
-                        "submitted_at": submission.submitted_at.isoformat() if submission and submission.submitted_at else None,
-                        "score": submission.score if submission else None,
-                        "grade": submission.grade if submission else None
+                        "submitted_at": submission.submitted_at if submission and submission.submitted_at else None,
+                        "score": getattr(submission, 'score', None) if submission else None,
+                        "grade": getattr(submission, 'grade', None) if submission else None
                     } if submission else {
                         "id": None,
                         "workflow_state": "unsubmitted",
@@ -186,8 +186,8 @@ class CanvasService:
                     "id": event.id,
                     "title": event.title,
                     "description": event.description,
-                    "start_at": event.start_at.isoformat() if event.start_at else None,
-                    "end_at": event.end_at.isoformat() if event.end_at else None,
+                    "start_at": event.start_at if event.start_at else None,
+                    "end_at": event.end_at if event.end_at else None,
                     "all_day": event.all_day,
                     "location_name": event.location_name,
                     "context_code": event.context_code,
@@ -227,8 +227,8 @@ class CanvasService:
                 "name": course.name,
                 "course_code": course.course_code,
                 "enrollment_term_id": course.enrollment_term_id,
-                "start_at": course.start_at.isoformat() if course.start_at else None,
-                "end_at": course.end_at.isoformat() if course.end_at else None,
+                "start_at": course.start_at if course.start_at else None,
+                "end_at": course.end_at if course.end_at else None,
                 "workflow_state": course.workflow_state,
                 "public_syllabus": getattr(course, 'public_syllabus', False),
                 "public_description": getattr(course, 'public_description', None),
@@ -261,7 +261,7 @@ class CanvasService:
                 "id": assignment.id,
                 "name": assignment.name,
                 "description": assignment.description,
-                "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
+                "due_at": assignment.due_at if assignment.due_at else None,
                 "points_possible": assignment.points_possible,
                 "submission_types": assignment.submission_types,
                 "workflow_state": assignment.workflow_state,
@@ -271,9 +271,9 @@ class CanvasService:
                 "submission": {
                     "id": submission.id if submission else None,
                     "workflow_state": submission.workflow_state if submission else "unsubmitted",
-                    "submitted_at": submission.submitted_at.isoformat() if submission and submission.submitted_at else None,
-                    "score": submission.score if submission else None,
-                    "grade": submission.grade if submission else None,
+                    "submitted_at": submission.submitted_at if submission and submission.submitted_at else None,
+                    "score": getattr(submission, 'score', None) if submission else None,
+                    "grade": getattr(submission, 'grade', None) if submission else None,
                     "body": getattr(submission, 'body', None) if submission else None
                 } if submission else {
                     "id": None,

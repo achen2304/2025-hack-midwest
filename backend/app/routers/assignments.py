@@ -71,6 +71,16 @@ async def get_assignments(
 
     By default, fetches assignments for the next 6 weeks.
     Use 'weeks' parameter to adjust the time window (1-52 weeks).
+    
+    Query Parameters:
+    - status: Filter by status (not_started, in_progress, completed)
+    - course_id: Filter by specific course/class ID (returns ALL assignments for that course, ignoring date limits)
+    - due_before: Filter assignments due before this date
+    - due_after: Filter assignments due after this date
+    - weeks: Number of weeks to fetch (1-52, default: 6) - ignored when course_id is provided
+
+    Note: When course_id is provided, the default 6-week date filter is disabled
+    to return all assignments for that specific course.
 
     This pulls from the local database, NOT directly from Canvas.
     To sync latest from Canvas, use POST /canvas/sync first.
@@ -105,8 +115,11 @@ async def get_assignments(
 
         if course_id:
             query["course_id"] = course_id
+        print(f"Course ID: {course_id}")
+        print(f"Query: {query}")
 
         # Date filtering: default to next 4-6 weeks if not specified
+        # If course_id is provided, don't apply default date filtering to allow all assignments for that course
         if due_before or due_after:
             date_query = {}
             if due_before:
@@ -114,7 +127,7 @@ async def get_assignments(
             if due_after:
                 date_query["$gte"] = due_after
             query["due_date"] = date_query
-        else:
+        elif not course_id:  # Only apply default date filtering if no specific course_id is requested
             # Default: fetch assignments for the next N weeks
             now = datetime.utcnow()
             future_date = now + timedelta(weeks=weeks)
@@ -129,6 +142,10 @@ async def get_assignments(
 
         assignments = []
         for doc in assignments_docs:
+            # Additional safety filter: if course_id was provided, only include assignments that match
+            if course_id and doc.get("course_id") != course_id:
+                continue
+                
             # Get course information
             course_info = await get_course_info(db, doc.get("course_id", ""), db_user_id)
             
@@ -145,6 +162,9 @@ async def get_assignments(
                 status=doc.get("status", "not_started"),
                 canvas_workflow_state=doc.get("canvas_workflow_state")
             ))
+
+        if course_id:
+            assignments = [assignment for assignment in assignments if assignment.course_id == course_id]
 
         return assignments
 
