@@ -19,9 +19,7 @@ from app.util.db import db_manager
 from app.util.auth import verify_backend_token
 
 # Import routers
-from app.routers import user, canvas, assignments, calendar, documents, assignments_vector_simple
-# Temporarily commented out due to strands dependency:
-# from app.routers import health, schedule, chat
+from app.routers import user, canvas, assignments, calendar, documents, health, schedule, chat, assignments_vector_simple
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -146,11 +144,9 @@ app.include_router(canvas.router)
 app.include_router(assignments.router)
 app.include_router(calendar.router)
 app.include_router(documents.router)
-app.include_router(assignments_vector_simple.router)
-# Temporarily commented out due to strands dependency:
-# app.include_router(health.router)
-# app.include_router(schedule.router)
-# app.include_router(chat.router)
+app.include_router(health.router)
+app.include_router(schedule.router)
+app.include_router(chat.router)
 
 
 if __name__ == "__main__":

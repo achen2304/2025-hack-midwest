@@ -91,12 +91,34 @@ class EventType(str, Enum):
     ACADEMIC = "academic"
     SOCIAL = "social"
     WELLNESS = "wellness"
+    STUDY_BLOCK = "study_block"
+    BREAK = "break"
     OTHER = "other"
+
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive lookup and string conversion"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class EventPriority(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive lookup and string conversion"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class CalendarEventCreate(BaseModel):
     title: str = Field(..., description="Event title")
@@ -153,6 +175,16 @@ class WeekDay(str, Enum):
     FRIDAY = "friday"
     SATURDAY = "saturday"
     SUNDAY = "sunday"
+
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive lookup and string conversion"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class ClassEventCreate(BaseModel):
     title: str = Field(..., description="Class title")

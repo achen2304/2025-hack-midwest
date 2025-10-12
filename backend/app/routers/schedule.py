@@ -79,12 +79,13 @@ async def generate_schedule(
         end_date = request.end_date or (start_date + timedelta(days=14))  # Default 2 weeks
 
         # Step 1: Get all assignments that need study time
+        # Include assignments due within the schedule window plus a small buffer for urgency
         assignments_cursor = db.assignments.find({
             "user_id": db_user_id,
             "status": {"$in": ["not_started", "in_progress"]},
             "due_date": {
                 "$gte": start_date,
-                "$lte": end_date + timedelta(days=7)  # Include assignments due within a week after range
+                "$lte": end_date  # Schedule within the defined window
             }
         }).sort("due_date", 1)
 
@@ -133,16 +134,18 @@ async def generate_schedule(
             sentiment = recent_checkin.get("sentiment", "neutral")
             if sentiment in ["stressed", "overwhelmed"]:
                 wellness_state = "stressed"
+            elif sentiment == "negative":
+                wellness_state = "stressed"  # Treat negative sentiment as stressed
             elif sentiment == "positive":
                 wellness_state = "good"
 
         # Step 4: WIPE previous AI-generated events if regenerating
         if request.regenerate:
-            # Delete all STUDY_BLOCK and BREAK events in the date range
+            # Delete all AI-generated STUDY_BLOCK and BREAK events in the date range
             await db.calendar_events.delete_many({
                 "user_id": db_user_id,
-                "event_type": "other",  # We'll use "other" type for AI-generated blocks
                 "source": "CAMPUSMIND_AI",  # Mark AI-generated events
+                "event_type": {"$in": [EventType.STUDY_BLOCK, EventType.BREAK]},
                 "start_time": {"$gte": start_date, "$lte": end_date}
             })
 
@@ -167,9 +170,16 @@ async def generate_schedule(
         break_blocks_created = 0
 
         for event in schedule_result.get("schedule", []):
-            event_type = "other"  # Use "other" for AI-generated blocks
             is_study_block = event.get("type") == "STUDY_BLOCK"
             is_break = event.get("type") == "BREAK"
+
+            # Use proper EventType enum values
+            if is_study_block:
+                event_type = EventType.STUDY_BLOCK
+            elif is_break:
+                event_type = EventType.BREAK
+            else:
+                event_type = EventType.OTHER
 
             # Parse datetime strings if needed
             start_time = event.get("start_time")
@@ -187,14 +197,13 @@ async def generate_schedule(
                 "end_time": end_time,
                 "location": "",
                 "event_type": event_type,
-                "priority": "high" if is_study_block else "low",
+                "priority": EventPriority.HIGH if is_study_block else EventPriority.LOW,
                 "is_recurring": False,
                 "recurrence_pattern": None,
                 "color": "#4CAF50" if is_study_block else "#2196F3",  # Green for study, blue for break
                 "notifications": [15] if is_study_block else [],
                 "source": "CAMPUSMIND_AI",  # Mark as AI-generated
                 "ai_generated": True,
-                "block_type": event.get("type"),
                 "course_id": event.get("course_id"),
                 "assignment_id": event.get("assignment_id"),
                 "is_locked": False,  # AI events start unlocked

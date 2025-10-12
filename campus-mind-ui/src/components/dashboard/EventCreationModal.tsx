@@ -35,8 +35,8 @@ interface CalendarEventCreate {
   start_time: string;
   end_time: string;
   location?: string;
-  event_type: 'ACADEMIC' | 'PERSONAL' | 'STUDY_BLOCK' | 'BREAK';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  event_type: 'academic' | 'personal' | 'study_block' | 'break' | 'social' | 'wellness' | 'other';
+  priority: 'low' | 'medium' | 'high';
   color?: string;
 }
 
@@ -54,8 +54,8 @@ const EventCreationModal = ({ onEventCreated }: EventCreationModalProps) => {
     start_time: '',
     end_time: '',
     location: '',
-    event_type: 'PERSONAL',
-    priority: 'MEDIUM',
+    event_type: 'personal',
+    priority: 'medium',
     color: '#3b82f6',
   });
 
@@ -105,8 +105,8 @@ const EventCreationModal = ({ onEventCreated }: EventCreationModalProps) => {
           start_time: '',
           end_time: '',
           location: '',
-          event_type: 'PERSONAL',
-          priority: 'MEDIUM',
+          event_type: 'personal',
+          priority: 'medium',
           color: '#3b82f6',
         });
         setStartDate(undefined);
@@ -258,10 +258,13 @@ const EventCreationModal = ({ onEventCreated }: EventCreationModalProps) => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACADEMIC">Academic</SelectItem>
-                  <SelectItem value="PERSONAL">Personal</SelectItem>
-                  <SelectItem value="STUDY_BLOCK">Study Block</SelectItem>
-                  <SelectItem value="BREAK">Break</SelectItem>
+                  <SelectItem value="academic">Academic</SelectItem>
+                  <SelectItem value="personal">Personal</SelectItem>
+                  <SelectItem value="study_block">Study Block</SelectItem>
+                  <SelectItem value="break">Break</SelectItem>
+                  <SelectItem value="social">Social</SelectItem>
+                  <SelectItem value="wellness">Wellness</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -278,9 +281,9 @@ const EventCreationModal = ({ onEventCreated }: EventCreationModalProps) => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
                 </SelectContent>
               </Select>
             </div>

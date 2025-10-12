@@ -206,6 +206,79 @@ async def create_event(
             detail=f"Failed to create event: {str(e)}"
         )
 
+@router.get("/events/upcoming", response_model=List[CalendarEventResponse])
+async def get_upcoming_events(
+    days: int = Query(7, description="Number of days to look ahead"),
+    limit: int = Query(10, description="Maximum number of events to return"),
+    user=Depends(verify_backend_token),
+    db=Depends(get_database)
+):
+    """Get upcoming calendar events for the next X days"""
+    try:
+        user_id = user.get("sub")
+        email = user.get("email")
+
+        # Get user's MongoDB ID
+        user_doc = None
+        try:
+            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        except:
+            pass
+
+        if not user_doc:
+            user_doc = await db.users.find_one({"email": email})
+
+        if not user_doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        db_user_id = str(user_doc["_id"])
+
+        # Calculate date range
+        now = datetime.utcnow()
+        end_date = now + timedelta(days=days)
+
+        # Query for upcoming events
+        cursor = db.calendar_events.find({
+            "user_id": db_user_id,
+            "start_time": {"$gte": now, "$lte": end_date}
+        }).sort("start_time", 1).limit(limit)
+
+        events_docs = await cursor.to_list(length=None)
+
+        # Convert to response model
+        events = []
+        for doc in events_docs:
+            events.append(CalendarEventResponse(
+                id=str(doc["_id"]),
+                user_id=doc["user_id"],
+                title=doc["title"],
+                description=doc.get("description"),
+                start_time=doc["start_time"],
+                end_time=doc["end_time"],
+                location=doc.get("location"),
+                event_type=doc["event_type"],
+                priority=doc["priority"],
+                is_recurring=doc.get("is_recurring", False),
+                recurrence_pattern=doc.get("recurrence_pattern"),
+                color=doc.get("color"),
+                notifications=doc.get("notifications", []),
+                created_at=doc["created_at"],
+                updated_at=doc.get("updated_at")
+            ))
+
+        return events
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch upcoming events: {str(e)}"
+        )
+
 @router.get("/events", response_model=CalendarEventsResponse)
 async def get_events(
     start_date: Optional[datetime] = Query(None, description="Filter events starting from this date"),
@@ -609,75 +682,3 @@ async def create_class_events(
             detail=f"Failed to create class events: {str(e)}"
         )
 
-@router.get("/events/upcoming", response_model=List[CalendarEventResponse])
-async def get_upcoming_events(
-    days: int = Query(7, description="Number of days to look ahead"),
-    limit: int = Query(10, description="Maximum number of events to return"),
-    user=Depends(verify_backend_token),
-    db=Depends(get_database)
-):
-    """Get upcoming calendar events for the next X days"""
-    try:
-        user_id = user.get("sub")
-        email = user.get("email")
-
-        # Get user's MongoDB ID
-        user_doc = None
-        try:
-            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        except:
-            pass
-
-        if not user_doc:
-            user_doc = await db.users.find_one({"email": email})
-
-        if not user_doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-
-        db_user_id = str(user_doc["_id"])
-
-        # Calculate date range
-        now = datetime.utcnow()
-        end_date = now + timedelta(days=days)
-
-        # Query for upcoming events
-        cursor = db.calendar_events.find({
-            "user_id": db_user_id,
-            "start_time": {"$gte": now, "$lte": end_date}
-        }).sort("start_time", 1).limit(limit)
-
-        events_docs = await cursor.to_list(length=None)
-
-        # Convert to response model
-        events = []
-        for doc in events_docs:
-            events.append(CalendarEventResponse(
-                id=str(doc["_id"]),
-                user_id=doc["user_id"],
-                title=doc["title"],
-                description=doc.get("description"),
-                start_time=doc["start_time"],
-                end_time=doc["end_time"],
-                location=doc.get("location"),
-                event_type=doc["event_type"],
-                priority=doc["priority"],
-                is_recurring=doc.get("is_recurring", False),
-                recurrence_pattern=doc.get("recurrence_pattern"),
-                color=doc.get("color"),
-                notifications=doc.get("notifications", []),
-                created_at=doc["created_at"],
-                updated_at=doc.get("updated_at")
-            ))
-
-        return events
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch upcoming events: {str(e)}"
-        )

@@ -9,6 +9,7 @@ This agent helps students study by:
 """
 from typing import List, Dict, Any, Optional
 from strands import Agent
+from strands.models import BedrockModel
 
 
 class StudyAssistantAgent:
@@ -28,6 +29,7 @@ class StudyAssistantAgent:
         """Initialize the Study Assistant Agent"""
         self.agent = Agent(
             name="StudyAssistantAgent",
+            model=BedrockModel(model_id='anthropic.claude-3-5-sonnet-20240620-v1:0'),
             system_prompt="""You are an expert study assistant and tutor for college students.
 
 Your role is to help students understand their course materials by:
@@ -158,7 +160,7 @@ Respond helpfully by:
 Your response:"""
 
             # Step 5: Get AI response
-            response = await self.agent.run_async(prompt)
+            response = await self.agent.invoke_async(prompt)
 
             # Step 6: Parse response and extract metadata
             answer_text = self._extract_text_from_response(response)
@@ -285,7 +287,7 @@ Document content:
 
 Your analysis:"""
 
-            response = await self.agent.run_async(prompt)
+            response = await self.agent.invoke_async(prompt)
             answer = self._extract_text_from_response(response)
 
             # Simple parsing (could be improved with structured output)

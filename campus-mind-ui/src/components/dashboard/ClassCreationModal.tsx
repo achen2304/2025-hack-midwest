@@ -39,7 +39,7 @@ interface ClassEventCreate {
   days_of_week: string[];
   term_start_date: string;
   term_end_date: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority: 'low' | 'medium' | 'high';
   color?: string;
 }
 
@@ -60,7 +60,7 @@ const ClassCreationModal = ({ onClassesCreated }: ClassCreationModalProps) => {
     days_of_week: [],
     term_start_date: '',
     term_end_date: '',
-    priority: 'MEDIUM',
+    priority: 'medium',
     color: '#10b981',
   });
 
@@ -132,7 +132,7 @@ const ClassCreationModal = ({ onClassesCreated }: ClassCreationModalProps) => {
           days_of_week: [],
           term_start_date: '',
           term_end_date: '',
-          priority: 'MEDIUM',
+          priority: 'medium',
           color: '#10b981',
         });
         setTermStartDate(undefined);
@@ -305,9 +305,9 @@ const ClassCreationModal = ({ onClassesCreated }: ClassCreationModalProps) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="LOW">Low</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HIGH">High</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
               </SelectContent>
             </Select>
           </div>

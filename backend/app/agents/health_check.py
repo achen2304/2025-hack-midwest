@@ -3,6 +3,7 @@ Health Check Agent - Monitors student wellness and adjusts check-in frequency
 """
 from typing import List, Dict, Any, Optional
 from strands import Agent
+from strands.models import BedrockModel
 import json
 
 
@@ -17,6 +18,7 @@ class HealthCheckAgent:
     def __init__(self):
         self.agent = Agent(
             name="HealthCheckAgent",
+            model=BedrockModel(model_id='anthropic.claude-3-5-sonnet-20240620-v1:0'),
             system_prompt="""You are a compassionate wellness companion for college students.
 
 Your role:
@@ -68,7 +70,7 @@ Analyze this student's well-being and provide:
 Respond in JSON format."""
 
         try:
-            response = await self.agent.run_async(prompt)
+            response = await self.agent.invoke_async(prompt)
             result = self._parse_response(response)
             return result
         except Exception as e:

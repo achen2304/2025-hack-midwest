@@ -3,6 +3,7 @@ Study Planner Agent - Creates personalized study guides using RAG
 """
 from typing import List, Dict, Any
 from strands import Agent
+from strands.models import BedrockModel
 import json
 
 
@@ -18,6 +19,7 @@ class StudyPlannerAgent:
         self.vector_search = vector_search_service
         self.agent = Agent(
             name="StudyPlannerAgent",
+            model=BedrockModel(model_id='anthropic.claude-3-5-sonnet-20240620-v1:0'),
             system_prompt="""You are an expert academic tutor who creates personalized study guides.
 
 Your role:
@@ -76,7 +78,7 @@ Format as JSON:
 """
 
         try:
-            response = await self.agent.run_async(prompt)
+            response = await self.agent.invoke_async(prompt)
             study_guide = self._parse_study_guide(response)
             return {
                 "success": True,

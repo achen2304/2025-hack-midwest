@@ -4,40 +4,92 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { format, isToday, isTomorrow, parseISO } from "date-fns";
 
-interface Event {
-  id: number;
+interface CalendarEvent {
+  id: string;
   title: string;
-  time: string;
-  type: "exam" | "class" | "study" | "personal";
+  start_time: string;
+  end_time: string;
+  event_type: string;
+  priority: string;
+  location?: string;
 }
 
 const UpcomingEventsList = () => {
-  const [filter, setFilter] = useState<"all" | "exams">("all");
-  
-  const events: Event[] = [
-    { id: 1, title: "Linear Algebra Exam", time: "Oct 17, 2:00 PM", type: "exam" },
-    { id: 2, title: "CS228 Lecture", time: "Today, 10:00 AM", type: "class" },
-    { id: 3, title: "Study Group - Physics", time: "Today, 4:00 PM", type: "study" },
-    { id: 4, title: "Club Meeting", time: "Tomorrow, 3:00 PM", type: "personal" },
-  ];
+  const { data: session } = useSession();
+  const [filter, setFilter] = useState<"all" | "academic">("all");
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredEvents = filter === "all" ? events : events.filter(e => e.type === "exam");
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!session) return;
+
+      try {
+        // Fetch upcoming events for next 7 days, limit to 10
+        const response = await fetch('/api/backend/calendar/events/upcoming?days=7&limit=10');
+        if (response.ok) {
+          const data = await response.json();
+          setEvents(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch upcoming events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [session]);
+
+  const filteredEvents = filter === "all" ? events : events.filter(e => e.event_type === "academic");
 
   const getTypeVariant = (type: string) => {
     switch (type) {
-      case "exam": return "destructive";
-      case "class": return "secondary";
-      case "study": return "default";
-      case "personal": return "outline";
+      case "academic": return "destructive";
+      case "study_block": return "default";
+      case "personal": return "secondary";
+      case "social": return "outline";
+      case "wellness": return "outline";
       default: return "default";
     }
   };
 
   const getTypeLabel = (type: string) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    const labels: Record<string, string> = {
+      academic: "Academic",
+      study_block: "Study",
+      break: "Break",
+      personal: "Personal",
+      social: "Social",
+      wellness: "Wellness",
+      other: "Other"
+    };
+    return labels[type] || type;
   };
+
+  const formatEventTime = (startTime: string) => {
+    const date = parseISO(startTime);
+    if (isToday(date)) {
+      return `Today, ${format(date, 'h:mm a')}`;
+    } else if (isTomorrow(date)) {
+      return `Tomorrow, ${format(date, 'h:mm a')}`;
+    } else {
+      return format(date, 'MMM d, h:mm a');
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-2 border-border p-4 shadow-card bg-card">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Upcoming Events</h3>
+        <p className="text-xs text-muted-foreground">Loading events...</p>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-2 border-border p-4 shadow-card bg-card">
@@ -53,36 +105,45 @@ const UpcomingEventsList = () => {
             All
           </Button>
           <Button
-            variant={filter === "exams" ? "default" : "ghost"}
+            variant={filter === "academic" ? "default" : "ghost"}
             size="sm"
             className="h-7 text-xs"
-            onClick={() => setFilter("exams")}
+            onClick={() => setFilter("academic")}
           >
-            Exams
+            Academic
           </Button>
         </div>
       </div>
 
       <div className="space-y-3">
-        {filteredEvents.map((event) => (
-          <div
-            key={event.id}
-            className="p-3 rounded-lg border-2 border-border bg-card hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  <Clock className="h-3 w-3" />
-                  {event.time}
-                </p>
+        {filteredEvents.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">
+            No upcoming events
+          </p>
+        ) : (
+          filteredEvents.map((event) => (
+            <div
+              key={event.id}
+              className="p-3 rounded-lg border-2 border-border bg-card hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <Clock className="h-3 w-3" />
+                    {formatEventTime(event.start_time)}
+                  </p>
+                  {event.location && (
+                    <p className="text-xs text-muted-foreground mt-1">{event.location}</p>
+                  )}
+                </div>
+                <Badge variant={getTypeVariant(event.event_type)} className="text-xs flex-shrink-0">
+                  {getTypeLabel(event.event_type)}
+                </Badge>
               </div>
-              <Badge variant={getTypeVariant(event.type)} className="text-xs flex-shrink-0">
-                {getTypeLabel(event.type)}
-              </Badge>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </Card>
   );

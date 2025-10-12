@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import EventCreationModal from './EventCreationModal';
 import ClassCreationModal from './ClassCreationModal';
+import AIScheduleRegenerator from './AIScheduleRegenerator';
 
 interface StudyBlock {
   id: string;
@@ -22,7 +23,6 @@ interface StudyBlock {
 const TodayStudyPlan = () => {
   const { toast } = useToast();
   const { data: session } = useSession();
-  const [isRegenerating, setIsRegenerating] = useState(false);
   const [blocks, setBlocks] = useState<StudyBlock[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,15 +84,13 @@ const TodayStudyPlan = () => {
     }
   };
 
-  const handleRegenerate = () => {
-    setIsRegenerating(true);
-    setTimeout(() => {
-      setIsRegenerating(false);
-      toast({
-        title: 'Study plan regenerated',
-        description: 'Your schedule has been optimized with AI',
-      });
-    }, 1500);
+  const handleScheduleGenerated = () => {
+    // Refresh the study blocks after AI generation
+    refreshStudyBlocks();
+    toast({
+      title: 'Study plan regenerated',
+      description: 'Your schedule has been optimized with AI',
+    });
   };
 
   const refreshStudyBlocks = async () => {
@@ -168,15 +166,11 @@ const TodayStudyPlan = () => {
               : 'No study blocks scheduled for today'}
           </p>
         </div>
-        <Button
+        <AIScheduleRegenerator
+          onScheduleGenerated={handleScheduleGenerated}
           variant="outline"
           size="sm"
-          onClick={handleRegenerate}
-          disabled={isRegenerating}
-          className="border-2"
-        >
-          {isRegenerating ? 'Regenerating...' : 'Regenerate with AI'}
-        </Button>
+        />
       </div>
 
       <div className="space-y-3">

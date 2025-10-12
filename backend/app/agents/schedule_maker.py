@@ -3,6 +3,7 @@ Schedule Maker Agent - Creates and maintains dynamic study schedules
 """
 from typing import List, Dict, Any
 from strands import Agent
+from strands.models import BedrockModel
 import json
 
 
@@ -18,6 +19,7 @@ class ScheduleMakerAgent:
     def __init__(self):
         self.agent = Agent(
             name="ScheduleMakerAgent",
+            model=BedrockModel(model_id='anthropic.claude-3-5-sonnet-20240620-v1:0'),
             system_prompt="""You are an intelligent study schedule planner for college students.
 
 Your role:
@@ -88,7 +90,7 @@ Return JSON array of events:
 """
 
         try:
-            response = await self.agent.run_async(prompt)
+            response = await self.agent.invoke_async(prompt)
             schedule = self._parse_schedule_response(response)
             return {
                 "success": True,
