@@ -3,8 +3,11 @@ import { Brain, BookOpen, Heart, Calendar, Flame, Target, Sparkles, ArrowRight, 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-const Landing = () => {
+const Landing = async () => {
+  const session = await getServerSession(authOptions);
   const features = [
     {
       icon: BookOpen,
@@ -137,6 +140,14 @@ const Landing = () => {
             </div>
             
             <div className="flex items-center gap-3">
+              {session?.user ? (
+                <Link href="dashboard">
+                <Button size="sm" className="gap-2">
+                  Dashboard
+                </Button>
+                </Link>
+              ) : (
+                <>
               <Link href="/login">
                 <Button variant="ghost" size="sm">
                   Log In
@@ -148,6 +159,8 @@ const Landing = () => {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+              </>
+              )}
             </div>
           </div>
         </div>
