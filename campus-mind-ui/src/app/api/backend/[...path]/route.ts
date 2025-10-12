@@ -37,7 +37,6 @@ async function signBackendJWT(t: any) {
 async function proxy(req: NextRequest, path: string[]) {
   // 1) Authenticate via NextAuth cookie
   const token = await getToken({ req, secret: NEXTAUTH_SECRET });
-  console.log("as token?", !!token);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // 2) Mint backend JWT and attach header
@@ -49,8 +48,6 @@ async function proxy(req: NextRequest, path: string[]) {
 
   // 3) Build target URL + forward
   const url = `${API_BASE}/${path.join("/")}${req.nextUrl.search}`;
-  console.log("forwarding to", url);
-  console.log("auth header present?", headers.has("Authorization"));
 
   const method = req.method.toUpperCase();
   const init: RequestInit = {
@@ -68,8 +65,27 @@ async function proxy(req: NextRequest, path: string[]) {
   });
 }
 
-export const GET = (req: NextRequest, ctx: any) => proxy(req, ctx.params.path);
-export const POST = (req: NextRequest, ctx: any) => proxy(req, ctx.params.path);
-export const PUT = (req: NextRequest, ctx: any) => proxy(req, ctx.params.path);
-export const PATCH = (req: NextRequest, ctx: any) => proxy(req, ctx.params.path);
-export const DELETE = (req: NextRequest, ctx: any) => proxy(req, ctx.params.path);
+export const GET = async (req: NextRequest, ctx: any) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};
+
+export const POST = async (req: NextRequest, ctx: any) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};
+
+export const PUT = async (req: NextRequest, ctx: any) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};
+
+export const PATCH = async (req: NextRequest, ctx: any) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};
+
+export const DELETE = async (req: NextRequest, ctx: any) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};

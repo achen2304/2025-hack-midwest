@@ -26,12 +26,12 @@ const TasksAssignments = () => {
   const [loading, setLoading] = useState(true);
 
   // Fetch assignments from the backend
-  useEffect(() => {
+useEffect(() => {
     const fetchAssignments = async () => {
       if (!session) return;
 
       try {
-        const response = await fetch('/api/backend/assignments?weeks=6');
+        const response = await fetch('/api/backend/assignments');
 
         if (response.ok) {
           const data = await response.json();

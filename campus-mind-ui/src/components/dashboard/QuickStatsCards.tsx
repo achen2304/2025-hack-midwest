@@ -37,7 +37,7 @@ const QuickStatsCards = () => {
       if (!session) return;
 
       try {
-        const response = await fetch('/api/backend/assignments?weeks=4');
+        const response = await fetch('/api/backend/assignments');
         if (response.ok) {
           const assignments: Assignment[] = await response.json();
 
@@ -73,7 +73,7 @@ const QuickStatsCards = () => {
 
     fetchActiveCourse();
   }, [session]);
-
+activeCourse
   // Fetch study sessions for the week
   useEffect(() => {
     const fetchStudySessions = async () => {

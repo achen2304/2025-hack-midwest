@@ -494,6 +494,91 @@ async def track_courses(
             detail=f"Failed to update tracked courses: {str(e)}"
         )
 
+@router.get("/assignments", response_model=List[CanvasAssignmentResponse])
+async def get_canvas_assignments(
+    user=Depends(verify_backend_token),
+    db=Depends(get_database)
+):
+    """Get assignments from tracked Canvas courses using canvasapi library"""
+    try:
+        user_id = user.get("sub")
+        email = user.get("email")
+
+        config = await get_user_canvas_config(user_id, email, db)
+
+        # Get user's tracked courses
+        user_doc = config.get("user_doc", {})
+        tracked_course_ids = user_doc.get("tracked_course_ids", [])
+
+        # If no tracked courses, return empty list
+        if not tracked_course_ids:
+            return []
+
+        # Initialize Canvas service
+        canvas_service = CanvasService(config["base_url"], config["token"])
+        
+        # Fetch courses from Canvas using canvasapi
+        courses = canvas_service.get_courses(enrollment_state="active", per_page=100)
+        all_assignments = []
+
+        # Get assignments for each tracked course only
+        for course in courses:
+            course_id = str(course["id"])
+
+            # Skip if not tracked
+            if course_id not in tracked_course_ids:
+                continue
+
+            try:
+                assignments = canvas_service.get_course_assignments(int(course_id), per_page=100)
+                
+                for assignment in assignments:
+                    # Get submission status from Canvas
+                    submission = assignment.get("submission", {})
+                    workflow_state = submission.get("workflow_state", "unsubmitted")
+
+                    # Map Canvas workflow_state to our assignment_status
+                    # Note: Canvas can only set not_started or completed
+                    # "in_progress" can ONLY be set manually by the user
+                    if workflow_state in ["submitted", "pending_review", "graded", "complete"]:
+                        assignment_status = "completed"  # Student has submitted
+                    else:
+                        assignment_status = "not_started"
+
+                    all_assignments.append(CanvasAssignmentResponse(
+                        id=str(assignment["id"]),
+                        name=assignment.get("name", "Unnamed Assignment"),
+                        description=assignment.get("description"),
+                        due_at=assignment.get("due_at"),
+                        course_id=course_id,
+                        course_name=course.get("name", "Unknown Course"),
+                        course_code=course.get("course_code", ""),
+                        points_possible=assignment.get("points_possible"),
+                        submission_types=assignment.get("submission_types", []),
+                        status=assignment_status,
+                        canvas_workflow_state=workflow_state
+                    ))
+                    
+            except ValueError as e:
+                # Course not accessible, skip it
+                print(f"Warning: Could not access course {course_id}: {str(e)}")
+                continue
+
+        # Sort assignments by due_date (None values at the end)
+        all_assignments.sort(key=lambda x: (x.due_at is None, x.due_at))
+
+        return all_assignments
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch Canvas assignments: {str(e)}"
+        )
 
 @router.post("/sync", response_model=CanvasSyncResponse)
 async def sync_canvas_data(

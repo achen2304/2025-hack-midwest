@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,15 +9,83 @@ import { Calendar, ExternalLink, CheckCircle2, ArrowRight, Brain } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
+type Course = {
+  id: string;
+  name: string;
+  course_code?: string;
+  is_tracked?: boolean;
+};
+
 export default function Onboarding() {
   const { toast } = useToast();
+  const router = useRouter();
+
+  // Canvas connect state
   const [canvasUrl, setCanvasUrl] = useState("");
   const [canvasToken, setCanvasToken] = useState("");
   const [canvasConnected, setCanvasConnected] = useState(false);
-  const [googleConnected, setGoogleConnected] = useState(false);
-  const router = useRouter();
 
-  const handleCanvasConnect = () => {
+  // Google (still simulated)
+  const [googleConnected, setGoogleConnected] = useState(false);
+
+  // Courses + selection
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+
+  // Loading flags
+  const [savingToken, setSavingToken] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // UI helpers
+  const [disableContinue, setDisableContinue] = useState(true);
+
+  // When we have selected courses, enable the final Sync & Continue button
+  useEffect(() => {
+    setDisableContinue(!(canvasConnected && selectedCourseIds.length > 0));
+  }, [canvasConnected, selectedCourseIds]);
+
+  const api = {
+    saveToken: async (baseUrl: string, token: string) => {
+      const res = await fetch('/api/backend/canvas/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ canvas_token: token, canvas_base_url: baseUrl }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to save Canvas token');
+      }
+    },
+    fetchCourses: async (): Promise<Course[]> => {
+      const res = await fetch('/api/backend/canvas/courses');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to fetch courses');
+      }
+      return res.json();
+    },
+    trackCourses: async (courseIds: string[]) => {
+      const res = await fetch('/api/backend/canvas/courses/track', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_ids: courseIds }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to save tracked courses');
+      }
+    },
+    syncAll: async () => {
+      const res = await fetch('/api/backend/canvas/sync', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to sync Canvas data');
+      }
+    },
+  };
+
+  const handleCanvasConnect = async () => {
     if (!canvasUrl || !canvasToken) {
       toast({
         title: "Missing information",
@@ -27,16 +95,69 @@ export default function Onboarding() {
       return;
     }
 
-    // Simulate connection
-    setCanvasConnected(true);
-    toast({
-      title: "Canvas connected! ✅",
-      description: "Your courses will be synced automatically.",
-    });
+    try {
+      setSavingToken(true);
+      await api.saveToken(canvasUrl.trim(), canvasToken.trim());
+      setCanvasConnected(true);
+      setCanvasToken("");
+
+      toast({ title: "Canvas connected! ✅", description: "Fetching your courses..." });
+
+      // Immediately fetch courses after successful token save
+      setLoadingCourses(true);
+      const data = await api.fetchCourses();
+      setCourses(data);
+
+      // Pre-select any already-tracked courses
+      const pre = data.filter((c) => c.is_tracked).map((c) => c.id);
+      setSelectedCourseIds(pre);
+
+      toast({
+        title: "Courses loaded",
+        description: `Found ${data.length} course${data.length === 1 ? '' : 's'}. Select which to track.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Canvas connection failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingToken(false);
+      setLoadingCourses(false);
+    }
   };
 
+  const toggleCourseSelection = (courseId: string) => {
+    setSelectedCourseIds((prev) =>
+      prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId]
+    );
+  };
+
+  // Final step: save selected courses → sync assignments → go to dashboard
+  const handleSyncAndContinue = async () => {
+    if (!canvasConnected || selectedCourseIds.length === 0) {
+      toast({
+        title: "Select courses",
+        description: "Please connect Canvas and choose at least one course.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      await api.trackCourses(selectedCourseIds);
+      // Sync pulls assignments for ONLY tracked courses (per your backend’s logic)
+      await api.syncAll();
+
+      toast({ title: "All set! 🎉", description: "Courses and assignments synced." });
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Sync failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Simulated Google connect (unchanged)
   const handleGoogleConnect = () => {
-    // Simulate Google Calendar OAuth
     setGoogleConnected(true);
     toast({
       title: "Google Calendar connected! ✅",
@@ -44,13 +165,7 @@ export default function Onboarding() {
     });
   };
 
-  const handleContinue = () => {
-    router.push("/dashboard");
-  };
-
-  const handleSkip = () => {
-    router.push("/dashboard");
-  };
+  const handleSkip = () => router.push("/dashboard");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
@@ -63,11 +178,11 @@ export default function Onboarding() {
             </div>
           </div>
           <h1 className="text-3xl font-bold mb-2">Welcome to CampusMind! 🎉</h1>
-          <p className="text-muted-foreground">Let's connect your accounts to get started</p>
+          <p className="text-muted-foreground">Let’s connect and import what you need</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mb-6">
-          {/* Canvas Connection */}
+          {/* Canvas Connection + Course Selection */}
           <Card className={canvasConnected ? "border-primary shadow-glow" : ""}>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -79,9 +194,7 @@ export default function Onboarding() {
                 </CardTitle>
                 {canvasConnected && <CheckCircle2 className="h-5 w-5 text-primary" />}
               </div>
-              <CardDescription>
-                Sync your courses, assignments, and deadlines
-              </CardDescription>
+              <CardDescription>Sync your courses and assignments into CampusMind</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {!canvasConnected ? (
@@ -110,26 +223,87 @@ export default function Onboarding() {
                     <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                       <li>Log into your Canvas account</li>
                       <li>Go to Account → Settings</li>
-                      <li>Scroll to "Approved Integrations"</li>
-                      <li>Click "+ New Access Token"</li>
-                      <li>Copy and paste the token here</li>
+                      <li>Scroll to “Approved Integrations”</li>
+                      <li>Click “+ New Access Token”</li>
+                      <li>Paste the token here</li>
                     </ol>
                   </div>
-                  <Button onClick={handleCanvasConnect} className="w-full">
-                    Connect Canvas
+                  <Button onClick={handleCanvasConnect} className="w-full" disabled={savingToken}>
+                    {savingToken ? "Connecting..." : "Connect & Load Courses"}
                   </Button>
                 </>
               ) : (
-                <div className="text-center py-6">
-                  <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-2" />
-                  <p className="font-medium">Canvas Connected</p>
-                  <p className="text-sm text-muted-foreground">Your courses are syncing</p>
-                </div>
+                <>
+                  <div className="text-center py-3">
+                    <p className="font-medium">Canvas Connected</p>
+                    <p className="text-sm text-muted-foreground">
+                      {loadingCourses ? "Loading courses..." : "Select courses to track"}
+                    </p>
+                  </div>
+
+                  {courses.length > 0 && (
+                    <div className="p-3 bg-muted/40 rounded-md max-h-64 overflow-y-auto">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium">
+                          Courses ({courses.length})
+                        </p>
+                        <div className="space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedCourseIds(courses.map((c) => c.id))}
+                          >
+                            Select all
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedCourseIds([])}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {courses.map((course) => {
+                          const checked = selectedCourseIds.includes(course.id);
+                          return (
+                            <label
+                              key={course.id}
+                              className={`flex items-start gap-2 p-2 rounded border bg-white cursor-pointer hover:bg-gray-50 ${
+                                checked ? "border-blue-500 bg-blue-50" : ""
+                              }`}
+                              onClick={() => toggleCourseSelection(course.id)}
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-1"
+                                checked={checked}
+                                onChange={() => toggleCourseSelection(course.id)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium">{course.name}</p>
+                                <p className="text-xs text-gray-600">{course.course_code}</p>
+                                {course.is_tracked && (
+                                  <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                    Previously tracked
+                                  </span>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
 
-          {/* Google Calendar Connection */}
+          {/* Google Calendar (unchanged, optional) */}
           <Card className={googleConnected ? "border-primary shadow-glow" : ""}>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -141,50 +315,20 @@ export default function Onboarding() {
                 </CardTitle>
                 {googleConnected && <CheckCircle2 className="h-5 w-5 text-primary" />}
               </div>
-              <CardDescription>
-                Import your schedule and events automatically
-              </CardDescription>
+              <CardDescription>Import your schedule automatically</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {!googleConnected ? (
                 <>
                   <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
-                    <p className="font-medium">What you'll get:</p>
+                    <p className="font-medium">What you’ll get:</p>
                     <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                      <li>Auto-sync class schedules</li>
-                      <li>View all events in one place</li>
-                      <li>Smart scheduling recommendations</li>
-                      <li>Never miss an important date</li>
+                      <li>Class events in one place</li>
+                      <li>Smart scheduling</li>
+                      <li>Never miss a deadline</li>
                     </ul>
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
-                    <p className="font-medium">How it works:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                      <li>Click "Connect Google Calendar"</li>
-                      <li>Sign in with your Google account</li>
-                      <li>Grant calendar access permission</li>
-                      <li>Your events sync automatically</li>
-                    </ol>
-                  </div>
                   <Button onClick={handleGoogleConnect} variant="outline" className="w-full">
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                      <path
-                        fill="currentColor"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      />
-                    </svg>
                     Connect Google Calendar
                   </Button>
                 </>
@@ -203,12 +347,13 @@ export default function Onboarding() {
           <Button variant="ghost" onClick={handleSkip}>
             Skip for now
           </Button>
-          <Button 
-            onClick={handleContinue} 
+
+          <Button
             size="lg"
-            disabled={!canvasConnected && !googleConnected}
+            onClick={handleSyncAndContinue}
+            disabled={disableContinue || syncing}
           >
-            Continue to Dashboard
+            {syncing ? "Syncing..." : "Sync Selected & Continue"}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

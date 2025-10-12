@@ -47,7 +47,8 @@ const DashboardHeader = ({
         endOfDay.setHours(23, 59, 59, 999);
 
         const response = await fetch(
-          `/api/backend/assignments?due_before=${endOfDay.toISOString()}&due_after=${startOfDay.toISOString()}&status=not_started,in_progress`
+          `/api/backend/assignments`
+          //`/api/backend/assignments?due_before=${endOfDay.toISOString()}&due_after=${startOfDay.toISOString()}&status=not_started,in_progress`
         );
 
         if (response.ok) {
@@ -70,7 +71,8 @@ const DashboardHeader = ({
       try {
         const now = new Date();
         const response = await fetch(
-          `/api/backend/assignments?due_before=${now.toISOString()}&status=not_started,in_progress`
+          `/api/backend/assignments`
+          //`/api/backend/assignments?due_before=${now.toISOString()}&status=not_started,in_progress`
         );
 
         if (response.ok) {

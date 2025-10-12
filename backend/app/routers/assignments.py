@@ -98,10 +98,14 @@ async def get_assignments(
                 date_q["$gte"] = due_after
             and_terms.append({"due_date": date_q})
         elif not course_id:
-            # default window if no course filter
             now = datetime.utcnow()
             future = now + timedelta(weeks=weeks)
-            and_terms.append({"due_date": {"$gte": now, "$lte": future}})
+            and_terms.append({
+                "$or": [
+                    {"due_date": {"$gte": now, "$lte": future}},
+                    {"due_date": None}
+                ]
+            })
 
         mongo_query = {"$and": and_terms} if len(and_terms) > 1 else and_terms[0]
 
