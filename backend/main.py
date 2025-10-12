@@ -2,22 +2,23 @@
 CampusMind FastAPI Application - Simplified Auth/User Setup
 Basic user authentication and management API
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
-from jose import jwt, JWTError
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
-from fastapi import Depends, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
 
 # Import database manager
 from app.util.db import db_manager
+
+# Import auth utilities
+from app.util.auth import verify_backend_token
+
+# Import routers
+from app.routers import user, canvas, assignments, calendar
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,13 +47,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-SECRET = os.environ.get("BACKEND_JWT_SECRET", "dev-secret")
-ALGS = ["HS256"]
-ISS = "nextapp"
-AUD = "fastapi"
-
-security = HTTPBearer()
-
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -76,31 +70,21 @@ async def health_check():
     """Health check endpoint"""
     try:
         # Test database connection
-        db = db_manager.get_database()
-        await db.command("ping")
+        db_status = "not connected"
+        if db_manager.client is not None:
+            try:
+                await db_manager.client.admin.command("ping")
+                db_status = "connected"
+            except:
+                db_status = "error"
 
         return {
             "status": "healthy",
-            "database": "connected",
+            "database": db_status,
             "version": "1.0.0"
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
-
-def verify_backend_token(creds: HTTPAuthorizationCredentials = Depends(security)):
-    token = creds.credentials
-    try:
-        payload = jwt.decode(
-            token,
-            SECRET,
-            algorithms=ALGS,
-            audience=AUD,
-            issuer=ISS,
-        )
-    except JWTError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    return payload  # contains sub, email, name, picture, iat, exp, iss, aud
 
 @app.get("/protected")
 def protected_route(user=Depends(verify_backend_token)):
@@ -110,6 +94,12 @@ def protected_route(user=Depends(verify_backend_token)):
         "email": user.get("email"),
         "name": user.get("name"),
     }
+
+# Include routers
+app.include_router(user.router)
+app.include_router(canvas.router)
+app.include_router(assignments.router)
+app.include_router(calendar.router)
 
 
 if __name__ == "__main__":

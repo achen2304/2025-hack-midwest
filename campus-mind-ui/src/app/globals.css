@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 40 30% 96%;
+    --foreground: 0 0% 5%;
+
+    --card: 40 40% 98%;
+    --card-foreground: 0 0% 5%;
+
+    --popover: 40 40% 98%;
+    --popover-foreground: 0 0% 5%;
+
+    --primary: 48 96% 65%;
+    --primary-foreground: 0 0% 5%;
+    --primary-glow: 48 96% 75%;
+
+    --secondary: 280 30% 80%;
+    --secondary-foreground: 0 0% 5%;
+
+    --muted: 40 20% 90%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 25 90% 75%;
+    --accent-foreground: 0 0% 5%;
+    --accent-glow: 25 90% 85%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 5%;
+
+    --border: 0 0% 10%;
+    --input: 0 0% 10%;
+    --ring: 48 96% 65%;
+
+    --radius: 1.25rem;
+    
+    --shadow-card: 4px 4px 0px 0px rgb(0 0 0 / 1);
+    --shadow-card-hover: 6px 6px 0px 0px rgb(0 0 0 / 1);
+    --shadow-glow: 0 0 30px rgb(255 215 0 / 0.2);
+    --shadow-glow-accent: 0 0 30px rgb(255 200 100 / 0.2);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 40 30% 96%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 40 30% 96%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 40 30% 96%;
+
+    --primary: 48 96% 65%;
+    --primary-foreground: 0 0% 5%;
+    --primary-glow: 48 96% 75%;
+
+    --secondary: 280 30% 60%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 25 90% 70%;
+    --accent-foreground: 0 0% 5%;
+    --accent-glow: 25 90% 80%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 5%;
+
+    --border: 40 30% 96%;
+    --input: 40 30% 96%;
+    --ring: 48 96% 65%;
+    
+    --shadow-card: 4px 4px 0px 0px rgb(255 255 255 / 0.1);
+    --shadow-card-hover: 6px 6px 0px 0px rgb(255 255 255 / 0.15);
+    --shadow-glow: 0 0 30px rgb(255 215 0 / 0.25);
+    --shadow-glow-accent: 0 0 30px rgb(255 200 100 / 0.25);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter;
+  }
+}
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .shadow-card-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .shadow-glow-accent {
+    box-shadow: var(--shadow-glow-accent);
+  }
+  
+  .glass-card {
+    background: linear-gradient(135deg, rgba(250, 245, 235, 0.95) 0%, rgba(250, 245, 235, 0.8) 100%);
+    backdrop-filter: blur(10px);
+    border: 2px solid hsl(var(--border));
+  }
+  
+  .dark .glass-card {
+    background: linear-gradient(135deg, rgba(20, 20, 20, 0.95) 0%, rgba(20, 20, 20, 0.8) 100%);
+    border: 2px solid hsl(var(--border));
+  }
+  
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  }
+  
+  .gradient-border {
+    border: 3px solid hsl(var(--border));
+    background: hsl(var(--card));
+  }
+  
+  .dark .gradient-border {
+    border: 3px solid hsl(var(--border));
+    background: hsl(var(--card));
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
