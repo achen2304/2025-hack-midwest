@@ -97,10 +97,17 @@ async def save_canvas_token(
         if not result or result.matched_count == 0:
             result = await db.users.update_one(
                 {"email": email},
-                {"$set": update_data}
+                {
+                    "$set": update_data,
+                    "$setOnInsert": {
+                        "email": email,
+                        "created_at": datetime.utcnow()
+                    }
+                },
+                upsert=True
             )
 
-        if result.matched_count == 0:
+        if result.matched_count == 0 and not result.upserted_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
