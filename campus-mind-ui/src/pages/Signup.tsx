@@ -44,7 +44,9 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { data: session, status } = useSession();
+  const sessionState = useSession();
+  const status = sessionState?.status;
+  const session = sessionState?.data;
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -95,10 +97,7 @@ export default function Signup() {
   }
 
   const handleSocialAuth = (provider: string) => {
-    toast({
-      title: "Coming soon",
-      description: `${provider} authentication will be available soon.`,
-    });
+    signIn('google', {callbackUrl: '/dashboard' });
   };
 
   if (status === "loading") {
@@ -108,6 +107,11 @@ export default function Signup() {
         </div>
       );
     }
+
+  if (session) {
+    router.push('/dashboard');
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
@@ -270,8 +274,8 @@ export default function Signup() {
         </Form>
 
         <SocialAuthButtons
-          onGoogleClick={() => handleSocialAuth("Google")}
-          onMicrosoftClick={() => handleSocialAuth("Microsoft")}
+          onGoogleClick={() => handleSocialAuth("google")}
+          onMicrosoftClick={() => handleSocialAuth("microsoft")}
           isLoading={isLoading}
         />
       </AuthCard>

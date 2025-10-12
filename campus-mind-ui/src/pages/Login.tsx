@@ -32,7 +32,9 @@ export default function Login() {
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
 
-  const { data: session, status } = useSession();
+  const sessionState = useSession();
+  const status = sessionState?.status;
+  const session = sessionState?.data;
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -69,10 +71,7 @@ export default function Login() {
   }
 
   const handleSocialAuth = (provider: string) => {
-    toast({
-      title: "Coming soon",
-      description: `${provider} authentication will be available soon.`,
-    });
+    signIn(provider, {callbackUrl: '/dashboard' });
   };
 
   if (status === "loading") {
@@ -185,8 +184,8 @@ export default function Login() {
         </Form>
 
         <SocialAuthButtons
-          onGoogleClick={() => handleSocialAuth("Google")}
-          onMicrosoftClick={() => handleSocialAuth("Microsoft")}
+          onGoogleClick={() => handleSocialAuth("google")}
+          onMicrosoftClick={() => handleSocialAuth("microsoft")}
           isLoading={isLoading}
         />
       </AuthCard>
