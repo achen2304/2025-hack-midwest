@@ -5,7 +5,9 @@ import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 
 export default function TestPage() {
-  const { data: session, status } = useSession()
+  const sessionState = useSession();
+  const user = sessionState?.data?.user; 
+  const status = sessionState?.status;
 
   // User Profile State
   const [profile, setProfile] = useState<any>(null)
@@ -273,8 +275,8 @@ export default function TestPage() {
       {/* Session Info */}
       <div className="mb-8 p-6 bg-gray-100 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Session Info</h2>
-        <p><strong>Email:</strong> {session?.user?.email}</p>
-        <p><strong>Name:</strong> {session?.user?.name}</p>
+        <p><strong>Email:</strong> {user?.email || ""}</p>
+        <p><strong>Name:</strong> {user?.name || ""}</p>
       </div>
 
       {/* User Profile Section */}
