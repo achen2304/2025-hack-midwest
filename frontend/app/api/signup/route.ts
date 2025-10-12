@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     }
 
     const client = await clientPromise;
-    const db = client.db();
+    const db = client.db(process.env.DB_NAME || "campusmind");
     const existing = await db.collection("users").findOne({ email });
 
     if (existing) {

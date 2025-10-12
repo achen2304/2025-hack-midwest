@@ -35,63 +35,35 @@ class DatabaseManager:
     
     async def disconnect(self):
         """Disconnect from MongoDB"""
-        if self.client:
+        if self.client is not None:
             self.client.close()
             print("Disconnected from MongoDB")
-    
+
     def get_database(self) -> AsyncIOMotorDatabase:
         """Get the database instance"""
-        if not self.database:
+        if self.database is None:
             raise RuntimeError("Database not connected. Call connect() first.")
         return self.database
     
     async def create_collections(self):
-        """Create necessary collections with proper indexes"""
+        """Setup database indexes (collections auto-create on first insert)"""
         try:
-            # Create collections if they don't exist
-            collections = [
-                "users", "journal_entries", "assignments", 
-                "study_plans", "canvas_courses", "vector_embeddings"
-            ]
-            
-            for collection_name in collections:
-                if collection_name not in await self.database.list_collection_names():
-                    await self.database.create_collection(collection_name)
-                    print(f"Created collection: {collection_name}")
-            
-            # Create indexes for better performance
-            await self._create_indexes()
-            
+            # MongoDB automatically creates collections on first document insert
+            # We only set up essential indexes here
+
+            # User indexes - only if users collection exists
+            existing_collections = await self.database.list_collection_names()
+
+            if "users" in existing_collections:
+                await self.database.users.create_index("email", unique=True)
+                print("Created indexes on users collection")
+
+            # Other indexes will be created as needed when collections are first used
+
         except Exception as e:
-            print(f"Error creating collections: {e}")
-            raise
-    
-    async def _create_indexes(self):
-        """Create database indexes"""
-        try:
-            # User indexes
-            await self.database.users.create_index("email", unique=True)
-            await self.database.users.create_index("university")
-            
-            # Journal entry indexes
-            await self.database.journal_entries.create_index("user_id")
-            await self.database.journal_entries.create_index("created_at")
-            await self.database.journal_entries.create_index("mood")
-            
-            # Assignment indexes
-            await self.database.assignments.create_index("user_id")
-            await self.database.assignments.create_index("due_date")
-            await self.database.assignments.create_index("status")
-            
-            # Study plan indexes
-            await self.database.study_plans.create_index("user_id")
-            await self.database.study_plans.create_index("created_at")
-            
-            print("Database indexes created successfully")
-            
-        except Exception as e:
-            print(f"Error creating indexes: {e}")
-            raise
+            # Don't fail startup if indexes can't be created
+            print(f"Note: Could not create indexes: {e}")
+            pass
 
 # Global database manager instance
 db_manager = DatabaseManager()
