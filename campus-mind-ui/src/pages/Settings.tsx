@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Upload, Calendar, Link as LinkIcon } from "lucide-react";
+import { Upload, Calendar, Link as LinkIcon, Loader2 } from "lucide-react";
 import axios from "axios";
+import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
   const [profileImage, setProfileImage] = useState<string>("");
   const [canvasToken, setCanvasToken] = useState<string>("");
+  const [canvasBaseUrl, setCanvasBaseUrl] = useState<string>("https://canvas.instructure.com");
+  const [isSavingCanvasToken, setIsSavingCanvasToken] = useState<boolean>(false);
+  const { toast } = useToast();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,12 +31,51 @@ const Settings = () => {
   };
 
   const handleCanvasTokenUpdate = async () => {
+    const trimmedToken = canvasToken.trim();
+    const trimmedBaseUrl = canvasBaseUrl.trim();
+
+    if (!trimmedToken) {
+      toast({
+        title: "Canvas token required",
+        description: "Add your Canvas access token before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingCanvasToken(true);
     try {
-      const response = await axios.post("/api/canvas/token", { token: canvasToken });
-      alert("Canvas token updated successfully!");
-    } catch (error) {
+      await axios.post(
+        "/api/backend/canvas/token",
+        {
+          canvas_token: trimmedToken,
+          ...(trimmedBaseUrl ? { canvas_base_url: trimmedBaseUrl } : {}),
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      toast({
+        title: "Canvas connected! ✅",
+        description: "Your Canvas token was saved successfully.",
+      });
+      setCanvasBaseUrl(trimmedBaseUrl || "https://canvas.instructure.com");
+      setCanvasToken("");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.response?.data?.error ||
+        "Failed to update Canvas token. Please try again.";
+
+      toast({
+        title: "Canvas update failed",
+        description: message,
+        variant: "destructive",
+      });
       console.error("Error updating Canvas token:", error);
-      alert("Failed to update Canvas token. Please try again.");
+    } finally {
+      setIsSavingCanvasToken(false);
     }
   };
 
@@ -162,27 +205,57 @@ const Settings = () => {
               <CardDescription>Configure your Canvas integration token</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="canvas-token">Canvas Access Token</Label>
-                <div className="flex gap-2">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="canvas-url">Canvas URL</Label>
                   <Input
-                    id="canvas-token"
-                    type="password"
-                    placeholder="Enter your Canvas API token"
-                    className="flex-1"
-                    value={canvasToken}
-                    onChange={(e) => setCanvasToken(e.target.value)}
+                    id="canvas-url"
+                    type="url"
+                    placeholder="https://your-school.instructure.com"
+                    value={canvasBaseUrl}
+                    onChange={(e) => setCanvasBaseUrl(e.target.value)}
                   />
-                  <Button variant="outline" size="icon">
-                    <LinkIcon className="h-4 w-4" />
-                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Your Canvas token is used to sync assignments and course information
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="canvas-token">Canvas Access Token</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="canvas-token"
+                      type="password"
+                      placeholder="Enter your Canvas API token"
+                      className="flex-1"
+                      value={canvasToken}
+                      onChange={(e) => setCanvasToken(e.target.value)}
+                    />
+                    <Button variant="outline" size="icon">
+                      <LinkIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Your Canvas token is used to sync assignments and course information
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
+                    <p className="font-medium">How to get your Canvas token:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                      <li>Log in to Canvas and open Account → Settings</li>
+                      <li>Scroll to &ldquo;Approved Integrations&rdquo;</li>
+                      <li>Select &ldquo;+ New Access Token&rdquo;</li>
+                      <li>Copy the generated token and paste it here</li>
+                    </ol>
+                  </div>
+                </div>
               </div>
 
-              <Button onClick={handleCanvasTokenUpdate}>Update Token</Button>
+              <Button onClick={handleCanvasTokenUpdate} disabled={isSavingCanvasToken}>
+                {isSavingCanvasToken ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving&hellip;
+                  </>
+                ) : (
+                  "Update Token"
+                )}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

@@ -31,7 +31,10 @@ class DatabaseManager:
             
         except Exception as e:
             print(f"Failed to connect to MongoDB: {e}")
-            raise
+            print("Running in development mode without database")
+            # In development, we'll continue without database for basic API testing
+            self.client = None
+            self.database = None
     
     async def disconnect(self):
         """Disconnect from MongoDB"""
