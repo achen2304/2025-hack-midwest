@@ -1,6 +1,6 @@
 """
-CampusMind FastAPI Application
-AI-powered academic and wellness assistant for college students
+CampusMind FastAPI Application - Simplified Auth/User Setup
+Basic user authentication and management API
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,13 +11,10 @@ import os
 from dotenv import load_dotenv
 from fastapi import Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
-
-# Import routers
-from app.routers import ingest, journal, plan, canvas, actions
 
 # Import database manager
 from app.util.db import db_manager
@@ -34,9 +31,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Failed to connect to database: {e}")
         raise
-    
+
     yield
-    
+
     # Shutdown
     print("Shutting down CampusMind API...")
     await db_manager.disconnect()
@@ -65,13 +62,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(ingest.router)
-app.include_router(journal.router)
-app.include_router(plan.router)
-app.include_router(canvas.router)
-app.include_router(actions.router)
-
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -88,7 +78,7 @@ async def health_check():
         # Test database connection
         db = db_manager.get_database()
         await db.command("ping")
-        
+
         return {
             "status": "healthy",
             "database": "connected",
@@ -96,9 +86,6 @@ async def health_check():
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
-
-
-
 
 def verify_backend_token(creds: HTTPAuthorizationCredentials = Depends(security)):
     token = creds.credentials
@@ -113,7 +100,6 @@ def verify_backend_token(creds: HTTPAuthorizationCredentials = Depends(security)
     except JWTError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    # optional: check custom claims here
     return payload  # contains sub, email, name, picture, iat, exp, iss, aud
 
 @app.get("/protected")
@@ -124,13 +110,6 @@ def protected_route(user=Depends(verify_backend_token)):
         "email": user.get("email"),
         "name": user.get("name"),
     }
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
