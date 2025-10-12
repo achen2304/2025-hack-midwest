@@ -53,6 +53,8 @@ class CanvasAssignmentResponse(BaseModel):
     description: Optional[str] = None
     due_at: Optional[datetime] = None
     course_id: str
+    course_name: Optional[str] = Field(None, description="Name of the course/class")
+    course_code: Optional[str] = Field(None, description="Course code (e.g., CS101)")
     points_possible: Optional[float] = None
     submission_types: List[str] = Field(default_factory=list)
     status: str = Field(default="not_started", description="not_started, in_progress, or completed")

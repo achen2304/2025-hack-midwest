@@ -551,6 +551,8 @@ async def get_canvas_assignments(
                         description=assignment.get("description"),
                         due_at=assignment.get("due_at"),
                         course_id=course_id,
+                        course_name=course.get("name", "Unknown Course"),
+                        course_code=course.get("course_code", ""),
                         points_possible=assignment.get("points_possible"),
                         submission_types=assignment.get("submission_types", []),
                         status=status,
