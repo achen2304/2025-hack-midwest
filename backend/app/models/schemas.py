@@ -82,3 +82,122 @@ class UserPreferencesResponse(BaseModel):
     break_duration: int
     travel_duration: int
     recurring_blocked_times: List[BlockedTime]
+
+# Calendar Event Models
+class EventType(str, Enum):
+    PERSONAL = "personal"
+    ACADEMIC = "academic"
+    SOCIAL = "social"
+    WELLNESS = "wellness"
+    OTHER = "other"
+
+class EventPriority(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+class CalendarEventCreate(BaseModel):
+    title: str = Field(..., description="Event title")
+    description: Optional[str] = Field(None, description="Event description")
+    start_time: datetime = Field(..., description="Event start time")
+    end_time: datetime = Field(..., description="Event end time")
+    location: Optional[str] = Field(None, description="Event location")
+    event_type: EventType = Field(default=EventType.PERSONAL, description="Type of event")
+    priority: EventPriority = Field(default=EventPriority.MEDIUM, description="Event priority")
+    is_recurring: bool = Field(default=False, description="Whether this is a recurring event")
+    recurrence_pattern: Optional[str] = Field(None, description="iCal recurrence rule (RRULE)")
+    color: Optional[str] = Field(None, description="Event color (hex code)")
+    notifications: Optional[List[int]] = Field(default_factory=list, description="Notification times in minutes before event")
+
+class CalendarEventResponse(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    description: Optional[str] = None
+    start_time: datetime
+    end_time: datetime
+    location: Optional[str] = None
+    event_type: EventType
+    priority: EventPriority
+    is_recurring: bool = False
+    recurrence_pattern: Optional[str] = None
+    color: Optional[str] = None
+    notifications: List[int] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+class CalendarEventUpdate(BaseModel):
+    title: Optional[str] = Field(None, description="Event title")
+    description: Optional[str] = Field(None, description="Event description")
+    start_time: Optional[datetime] = Field(None, description="Event start time")
+    end_time: Optional[datetime] = Field(None, description="Event end time")
+    location: Optional[str] = Field(None, description="Event location")
+    event_type: Optional[EventType] = Field(None, description="Type of event")
+    priority: Optional[EventPriority] = Field(None, description="Event priority")
+    is_recurring: Optional[bool] = Field(None, description="Whether this is a recurring event")
+    recurrence_pattern: Optional[str] = Field(None, description="iCal recurrence rule (RRULE)")
+    color: Optional[str] = Field(None, description="Event color (hex code)")
+    notifications: Optional[List[int]] = Field(None, description="Notification times in minutes before event")
+
+class CalendarEventsResponse(BaseModel):
+    events: List[CalendarEventResponse]
+    total: int
+    
+class WeekDay(str, Enum):
+    MONDAY = "monday"
+    TUESDAY = "tuesday"
+    WEDNESDAY = "wednesday"
+    THURSDAY = "thursday"
+    FRIDAY = "friday"
+    SATURDAY = "saturday"
+    SUNDAY = "sunday"
+
+class ClassEventCreate(BaseModel):
+    title: str = Field(..., description="Class title")
+    description: Optional[str] = Field(None, description="Class description")
+    location: Optional[str] = Field(None, description="Class location")
+    color: Optional[str] = Field(None, description="Event color (hex code)")
+    
+    # Days and times
+    days_of_week: List[WeekDay] = Field(..., description="Days of the week when class occurs")
+    start_time: str = Field(..., description="Class start time (HH:MM format)")
+    end_time: str = Field(..., description="Class end time (HH:MM format)")
+    
+    # Term dates
+    term_start_date: datetime = Field(..., description="First day of the term/semester")
+    term_end_date: datetime = Field(..., description="Last day of the term/semester")
+    
+    # Optional fields
+    notifications: Optional[List[int]] = Field(default_factory=list, description="Notification times in minutes before class")
+    priority: EventPriority = Field(default=EventPriority.MEDIUM, description="Class priority")
+
+class BulkEventsResponse(BaseModel):
+    success: bool
+    message: str
+    events_created: int
+    
+# Canvas Calendar Sync Models
+class CanvasCalendarEventType(str, Enum):
+    ASSIGNMENT = "assignment"
+    CALENDAR = "calendar_event"
+    DISCUSSION = "discussion_topic"
+    QUIZ = "quiz"
+    
+class CanvasCalendarEvent(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = None
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
+    location_name: Optional[str] = None
+    context_code: str  # Example: "course_123" or "user_456"
+    context_name: Optional[str] = None
+    html_url: Optional[str] = None
+    all_day: bool = False
+    type: CanvasCalendarEventType
+    
+class CanvasCalendarSyncResponse(BaseModel):
+    success: bool
+    message: str
+    events_synced: int
+    courses_included: int

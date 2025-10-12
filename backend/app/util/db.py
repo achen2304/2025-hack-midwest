@@ -57,6 +57,25 @@ class DatabaseManager:
             if "users" in existing_collections:
                 await self.database.users.create_index("email", unique=True)
                 print("Created indexes on users collection")
+                
+            # Calendar events indexes
+            if "calendar_events" in existing_collections:
+                # Index for user_id + start_time for efficient queries
+                await self.database.calendar_events.create_index([
+                    ("user_id", 1),
+                    ("start_time", 1)
+                ])
+                # Index for user_id + end_time for efficient date range queries
+                await self.database.calendar_events.create_index([
+                    ("user_id", 1),
+                    ("end_time", 1)
+                ])
+                # Index for user_id + event_type for filtering by type
+                await self.database.calendar_events.create_index([
+                    ("user_id", 1),
+                    ("event_type", 1)
+                ])
+                print("Created indexes on calendar_events collection")
 
             # Other indexes will be created as needed when collections are first used
 

@@ -2,7 +2,7 @@
 Canvas LMS integration routes
 """
 from fastapi import APIRouter, HTTPException, Depends, status
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
 from typing import List
 
@@ -15,7 +15,11 @@ from app.models.schemas import (
     CanvasAssignmentResponse,
     CanvasSyncResponse,
     TrackCoursesRequest,
-    TrackCoursesResponse
+    TrackCoursesResponse,
+    CanvasCalendarEvent,
+    CanvasCalendarSyncResponse,
+    CanvasCalendarEventType,
+    EventType
 )
 import httpx
 
@@ -77,11 +81,11 @@ async def save_canvas_token(
         )
 
 @router.get("/token/status", response_model=CanvasTokenResponse)
-async def get_canvas_token_status(
+async def check_canvas_token(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Check if user has a Canvas token configured"""
+    """Check if user has Canvas token configured"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
@@ -89,19 +93,12 @@ async def get_canvas_token_status(
         # Try to find user by MongoDB _id first
         user_doc = None
         try:
-            user_doc = await db.users.find_one(
-                {"_id": ObjectId(user_id)},
-                {"canvas_token": 1}
-            )
+            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
         except:
             pass
 
-        # If not found by ObjectId, try email
         if not user_doc:
-            user_doc = await db.users.find_one(
-                {"email": email},
-                {"canvas_token": 1}
-            )
+            user_doc = await db.users.find_one({"email": email})
 
         if not user_doc:
             raise HTTPException(
@@ -109,11 +106,11 @@ async def get_canvas_token_status(
                 detail="User not found"
             )
 
-        has_token = "canvas_token" in user_doc and user_doc["canvas_token"] is not None
+        has_token = "canvas_token" in user_doc and user_doc["canvas_token"]
 
         return CanvasTokenResponse(
             success=True,
-            message="Token status retrieved" if has_token else "No token configured",
+            message="Token status retrieved",
             has_token=has_token
         )
 
@@ -191,7 +188,168 @@ async def get_user_canvas_config(user_id: str, email: str, db):
 
     return {
         "token": user_doc["canvas_token"],
-        "base_url": user_doc.get("canvas_base_url", "https://canvas.instructure.com")
+        "base_url": user_doc.get("canvas_base_url", "https://canvas.instructure.com"),
+        "user_doc": user_doc
+    }
+    
+async def fetch_canvas_calendar_events(config, tracked_course_ids, start_date=None, end_date=None):
+    """Fetch calendar events from Canvas API for tracked courses"""
+    try:
+        # Prepare context codes for filtering (course_123, course_456, etc.)
+        context_codes = [f"course_{course_id}" for course_id in tracked_course_ids]
+        
+        # Add user's personal calendar
+        context_codes.append("user_self")
+        
+        if not context_codes:
+            return []
+            
+        # Prepare query parameters
+        params = {
+            "context_codes[]": context_codes,
+            "per_page": 100,
+            "all_events": "true",  # Include assignments, calendar events, etc.
+            "type": "event"  # Focus on calendar events first
+        }
+        
+        # Add date filters if provided
+        if start_date:
+            params["start_date"] = start_date.isoformat()
+        if end_date:
+            params["end_date"] = end_date.isoformat()
+            
+        # Fetch calendar events from Canvas
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{config['base_url']}/api/v1/calendar_events",
+                headers={"Authorization": f"Bearer {config['token']}"},
+                params=params
+            )
+            
+            if response.status_code != 200:
+                print(f"Failed to fetch calendar events: {response.status_code} {response.text}")
+                return []
+                
+            events_data = response.json()
+            
+            # Convert to our schema
+            events = []
+            for event in events_data:
+                # Determine event type
+                event_type = CanvasCalendarEventType.CALENDAR
+                if "assignment" in event:
+                    event_type = CanvasCalendarEventType.ASSIGNMENT
+                elif "discussion_topic" in event:
+                    event_type = CanvasCalendarEventType.DISCUSSION
+                elif "quiz" in event:
+                    event_type = CanvasCalendarEventType.QUIZ
+                    
+                # Extract context name (course name or "Personal")
+                context_name = "Personal"
+                context_code = event.get("context_code", "")
+                if context_code.startswith("course_"):
+                    course_id = context_code.split("_")[1]
+                    # Try to find course name
+                    for course_id_str in tracked_course_ids:
+                        if str(course_id) == str(course_id_str):
+                            # This is a tracked course, get its name
+                            context_name = f"Course {course_id}"  # Default if we can't find the name
+                            break
+                
+                events.append(CanvasCalendarEvent(
+                    id=str(event["id"]),
+                    title=event.get("title", "Untitled Event"),
+                    description=event.get("description"),
+                    start_at=event.get("start_at"),
+                    end_at=event.get("end_at"),
+                    location_name=event.get("location_name"),
+                    context_code=event.get("context_code", ""),
+                    context_name=context_name,
+                    html_url=event.get("html_url"),
+                    all_day=event.get("all_day", False),
+                    type=event_type
+                ))
+                
+            return events
+            
+    except Exception as e:
+        print(f"Error fetching Canvas calendar events: {str(e)}")
+        return []
+        
+def map_canvas_event_to_calendar_event(canvas_event, user_id):
+    """Convert Canvas calendar event to our calendar event format"""
+    # Map Canvas event type to our event type
+    event_type = EventType.ACADEMIC
+    if canvas_event.type == CanvasCalendarEventType.CALENDAR:
+        if canvas_event.context_code == "user_self":
+            event_type = EventType.PERSONAL
+        else:
+            event_type = EventType.ACADEMIC
+    elif canvas_event.type == CanvasCalendarEventType.ASSIGNMENT:
+        event_type = EventType.ACADEMIC
+    elif canvas_event.type == CanvasCalendarEventType.DISCUSSION:
+        event_type = EventType.ACADEMIC
+    elif canvas_event.type == CanvasCalendarEventType.QUIZ:
+        event_type = EventType.ACADEMIC
+        
+    # Generate a color based on the context_code
+    colors = {
+        "user_self": "#4285F4",  # Blue for personal events
+        "academic": "#0F9D58",    # Green for academic events
+        "assignment": "#DB4437",  # Red for assignments
+        "quiz": "#F4B400"         # Yellow for quizzes
+    }
+    
+    # Default color based on event type
+    color = colors.get("academic")
+    
+    # If it's a personal event, use that color
+    if canvas_event.context_code == "user_self":
+        color = colors.get("user_self")
+    
+    # If it's an assignment or quiz, use those colors
+    if canvas_event.type == CanvasCalendarEventType.ASSIGNMENT:
+        color = colors.get("assignment")
+    elif canvas_event.type == CanvasCalendarEventType.QUIZ:
+        color = colors.get("quiz")
+    
+    # Create event document
+    now = datetime.utcnow()
+    
+    # Build location string
+    location = canvas_event.location_name or ""
+    if not location and canvas_event.context_name and canvas_event.context_name != "Personal":
+        location = canvas_event.context_name
+        
+    # Build title with context if needed
+    title = canvas_event.title
+    if canvas_event.context_name and canvas_event.context_name != "Personal" and canvas_event.type != CanvasCalendarEventType.CALENDAR:
+        title = f"{title} ({canvas_event.context_name})"
+    
+    # Handle end time if not provided
+    end_time = canvas_event.end_at
+    if not end_time and canvas_event.start_at:
+        # Default to 1 hour duration if no end time
+        end_time = canvas_event.start_at + timedelta(hours=1)
+    
+    return {
+        "user_id": user_id,
+        "title": title,
+        "description": canvas_event.description,
+        "start_time": canvas_event.start_at,
+        "end_time": end_time,
+        "location": location,
+        "event_type": event_type,
+        "priority": "medium",
+        "is_recurring": False,
+        "recurrence_pattern": None,
+        "color": color,
+        "notifications": [15, 60],  # Default notifications
+        "canvas_id": canvas_event.id,
+        "canvas_url": canvas_event.html_url,
+        "canvas_context_code": canvas_event.context_code,
+        "created_at": now,
+        "updated_at": now
     }
 
 @router.get("/courses", response_model=List[CanvasCourseResponse])
@@ -199,14 +357,14 @@ async def get_canvas_courses(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Get user's Canvas courses (all if no tracking set, otherwise only tracked ones)"""
+    """Get user's Canvas courses"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
 
         config = await get_user_canvas_config(user_id, email, db)
 
-        # Get user's tracked course IDs
+        # Get user's tracked courses
         user_doc = None
         try:
             user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
@@ -218,6 +376,7 @@ async def get_canvas_courses(
 
         tracked_course_ids = user_doc.get("tracked_course_ids", []) if user_doc else []
 
+        # Fetch courses from Canvas
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{config['base_url']}/api/v1/courses",
@@ -228,31 +387,31 @@ async def get_canvas_courses(
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Canvas API error: {response.status_code}"
+                    detail="Failed to fetch courses from Canvas"
                 )
 
-            courses_data = response.json()
-            courses = []
+            courses = response.json()
+            course_responses = []
 
-            for course in courses_data:
+            for course in courses:
                 course_id = str(course["id"])
+                is_tracked = course_id in tracked_course_ids
 
-                # If user has tracked courses, only include those
-                # Otherwise, include all courses (initial pull)
-                if tracked_course_ids and course_id not in tracked_course_ids:
+                # If user has tracked courses, only return those
+                if tracked_course_ids and not is_tracked:
                     continue
 
-                courses.append(CanvasCourseResponse(
+                course_responses.append(CanvasCourseResponse(
                     id=course_id,
-                    name=course.get("name", "Unnamed Course"),
+                    name=course.get("name", ""),
                     course_code=course.get("course_code", ""),
                     enrollment_term_id=course.get("enrollment_term_id"),
                     start_at=course.get("start_at"),
                     end_at=course.get("end_at"),
-                    is_tracked=course_id in tracked_course_ids
+                    is_tracked=is_tracked
                 ))
 
-            return courses
+            return course_responses
 
     except HTTPException:
         raise
@@ -268,12 +427,12 @@ async def track_courses(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Set which courses to track for this user"""
+    """Set which Canvas courses to track"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
 
-        # Update user document with tracked course IDs
+        # Try to update by MongoDB _id first
         result = None
         try:
             result = await db.users.update_one(
@@ -298,7 +457,7 @@ async def track_courses(
 
         return TrackCoursesResponse(
             success=True,
-            message=f"Now tracking {len(track_request.course_ids)} course(s)",
+            message=f"Now tracking {len(track_request.course_ids)} courses",
             tracked_count=len(track_request.course_ids)
         )
 
@@ -315,14 +474,14 @@ async def get_canvas_assignments(
     user=Depends(verify_backend_token),
     db=Depends(get_database)
 ):
-    """Get user's Canvas assignments from tracked courses only"""
+    """Get assignments from tracked Canvas courses (direct from Canvas API)"""
     try:
         user_id = user.get("sub")
         email = user.get("email")
 
         config = await get_user_canvas_config(user_id, email, db)
 
-        # Get user's tracked course IDs
+        # Get user's tracked courses
         user_doc = None
         try:
             user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
@@ -338,7 +497,7 @@ async def get_canvas_assignments(
         if not tracked_course_ids:
             return []
 
-        # First get courses
+        # Fetch courses from Canvas
         async with httpx.AsyncClient() as client:
             courses_response = await client.get(
                 f"{config['base_url']}/api/v1/courses",
@@ -566,3 +725,97 @@ async def sync_canvas_data(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync Canvas data: {str(e)}"
         )
+
+@router.post("/calendar/sync", response_model=CanvasCalendarSyncResponse)
+async def sync_canvas_calendar(
+    user=Depends(verify_backend_token),
+    db=Depends(get_database)
+):
+    """
+    Sync Canvas calendar events to the database
+    
+    This endpoint fetches calendar events from Canvas for tracked courses and the user's personal calendar,
+    then syncs them to the database as calendar events. This allows users to see their Canvas events
+    in the CampusMind calendar.
+    """
+    try:
+        user_id = user.get("sub")
+        email = user.get("email")
+
+        config = await get_user_canvas_config(user_id, email, db)
+
+        # Get user's MongoDB ID and tracked courses
+        user_doc = config.get("user_doc")
+        
+        if user_doc:
+            db_user_id = str(user_doc["_id"])
+        else:
+            db_user_id = user_id  # Fallback to JWT sub
+
+        tracked_course_ids = user_doc.get("tracked_course_ids", []) if user_doc else []
+
+        # If no tracked courses, we can still sync personal calendar
+        if not tracked_course_ids:
+            # Just inform the user that we're only syncing personal events
+            print("No tracked courses found, only syncing personal calendar")
+
+        # Fetch calendar events from Canvas
+        # Default to fetching events for the next 3 months
+        start_date = datetime.utcnow()
+        end_date = start_date + timedelta(days=90)  # 3 months ahead
+        
+        canvas_events = await fetch_canvas_calendar_events(
+            config, 
+            tracked_course_ids,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        if not canvas_events:
+            return CanvasCalendarSyncResponse(
+                success=True,
+                message="No calendar events found in Canvas for the selected date range.",
+                events_synced=0,
+                courses_included=len(tracked_course_ids)
+            )
+            
+        # Convert Canvas events to our calendar event format
+        events_to_sync = []
+        for canvas_event in canvas_events:
+            calendar_event = map_canvas_event_to_calendar_event(canvas_event, db_user_id)
+            events_to_sync.append(calendar_event)
+            
+        # Sync events to database
+        events_synced = 0
+        for event in events_to_sync:
+            # Use canvas_id as a unique identifier to avoid duplicates
+            await db.calendar_events.update_one(
+                {
+                    "canvas_id": event["canvas_id"],
+                    "user_id": db_user_id
+                },
+                {
+                    "$set": event,
+                    "$setOnInsert": {
+                        "created_at": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
+            events_synced += 1
+            
+        return CanvasCalendarSyncResponse(
+            success=True,
+            message=f"Successfully synced {events_synced} calendar events from Canvas",
+            events_synced=events_synced,
+            courses_included=len(tracked_course_ids)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to sync Canvas calendar events: {str(e)}"
+        )
+}
