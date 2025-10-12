@@ -1,10 +1,8 @@
 """
-Services for CampusMind
+Services module for CampusMind backend
+Contains external API integrations and business logic services
 """
-from app.services.document_processor import DocumentProcessor
-from app.services.chunking_service import ChunkingService
 
-__all__ = [
-    "DocumentProcessor",
-    "ChunkingService",
-]
+from .canvas_service import CanvasService
+
+__all__ = ["CanvasService"]
