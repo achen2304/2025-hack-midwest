@@ -10,14 +10,6 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true, // Allow unsafe builds
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/backend/:path*',
-        destination: 'http://localhost:8000/:path*',
-      },
-    ];
-  },
 }
 
 module.exports = nextConfig
