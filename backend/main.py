@@ -147,6 +147,7 @@ app.include_router(documents.router)
 app.include_router(health.router)
 app.include_router(schedule.router)
 app.include_router(chat.router)
+app.include_router(assignments_vector_simple.router)
 
 
 if __name__ == "__main__":
